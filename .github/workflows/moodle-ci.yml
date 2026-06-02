@@ -57,11 +57,19 @@ jobs:
           echo $(cd ci && pwd)/vendor/bin >> $GITHUB_PATH
           sudo locale-gen en_AU.UTF-8
 
+      # moodle-plugin-ci --extra-plugins expects a container directory whose
+      # immediate subdirectories are plugin roots. Copy local_datagrading into
+      # its own container so moodle-plugin-ci discovers it correctly.
+      - name: Prepare extra plugins directory
+        run: |
+          mkdir extra_plugins
+          cp -r ./plugin/local_datagrading ./extra_plugins/local_datagrading
+
       - name: Install Moodle
         run: |
           moodle-plugin-ci install \
             --plugin ./plugin \
-            --extra-plugins ./plugin/local_datagrading \
+            --extra-plugins ./extra_plugins \
             --db-host=127.0.0.1 \
             --branch ${{ matrix.moodle-branch }}
         env:

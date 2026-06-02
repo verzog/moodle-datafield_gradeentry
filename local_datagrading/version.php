@@ -15,14 +15,15 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
+ * Plugin version metadata for local_datagrading.
+ *
  * @package    local_datagrading
  * @copyright  2025 onwards, Australian developers
  * @license    https://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
  */
 
-$plugin->version      = 2025120800;
-$plugin->requires     = 2024100700; // Moodle 5.0.
-$plugin->component    = 'local_datagrading';
-$plugin->dependencies = ['datafield_gradeentry' => 2025120800];
-$plugin->maturity     = MATURITY_STABLE;
-$plugin->release      = '1.0.0';
+$plugin->version  = 2025120801;
+$plugin->requires = 2024100700;
+$plugin->component = 'local_datagrading';
+$plugin->maturity = MATURITY_STABLE;
+$plugin->release  = '1.0.1';

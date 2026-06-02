@@ -15,24 +15,39 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
+ * Grade entry field class for the Moodle Database activity.
+ *
  * @package    datafield_gradeentry
  * @copyright  2025 onwards, Australian developers
  * @license    https://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
-
+/**
+ * A Database activity field type that records numeric grade values.
+ *
+ * Teachers grade entries via an inline panel in the browse view; students
+ * see their released grade and feedback. Grades sync to the Moodle gradebook
+ * via the companion local_datagrading plugin.
+ */
 class data_field_gradeentry extends data_field_base {
-
     /** @var string Field type identifier. */
     public $type = 'gradeentry';
 
+    /**
+     * Declare support for CSV import.
+     *
+     * @return bool
+     */
     public function supports_import() {
         return true;
     }
 
     /**
      * Hide this field from student add/edit forms — grading is teacher-only.
+     *
+     * @param int        $recordid  Existing record ID, or 0 for new entry.
+     * @param mixed|null $formdata  Previously submitted form data.
+     * @return string  Always empty; the field is never shown on the add form.
      */
     public function display_add_field($recordid = 0, $formdata = null) {
         return '';
@@ -41,25 +56,28 @@ class data_field_gradeentry extends data_field_base {
     /**
      * Render the field for the browse (list/single) view.
      *
-     * Teachers see an inline grading panel with a grade input, feedback
-     * textarea, and release toggle — wired up by local_datagrading/inline_grader.
-     * Students see their released grade and feedback, or a "grade pending" notice.
+     * Teachers see an inline grading panel (grade input, feedback textarea,
+     * release toggle) wired up by local_datagrading/inline_grader.
+     * Students see their released grade and feedback, or a pending notice.
+     *
+     * @param int    $recordid  Database record ID.
+     * @param string $template  Template context (unused).
+     * @return string  HTML fragment.
      */
     public function display_browse_field($recordid, $template) {
         global $DB;
 
-        $context   = context_module::instance($this->cm->id);
+        $context = context_module::instance($this->cm->id);
         $isteacher = has_capability('local/datagrading:grade', $context);
 
-        // Fetch stored grade value from data_content.
-        $content  = $DB->get_record('data_content', ['fieldid' => $this->field->id, 'recordid' => $recordid]);
-        $graderaw = ($content && $content->content !== null && $content->content !== '') ? (float) $content->content : null;
+        $content = $DB->get_record('data_content', ['fieldid' => $this->field->id, 'recordid' => $recordid]);
+        $graderaw = ($content && $content->content !== null && $content->content !== '')
+            ? (float) $content->content : null;
 
-        // Fetch grade metadata from local_datagrading (feedback, released flag).
         $meta = null;
         if (\core_component::get_component_directory('local_datagrading')) {
             $meta = $DB->get_record('local_datagrading_grades', [
-                'dataid'   => $this->field->dataid,
+                'dataid' => $this->field->dataid,
                 'recordid' => $recordid,
             ]);
         }
@@ -76,25 +94,31 @@ class data_field_gradeentry extends data_field_base {
 
     /**
      * Render the full inline grading panel shown to teachers.
+     *
+     * @param int        $recordid  Database record ID.
+     * @param float|null $graderaw  Current grade value, or null if ungraded.
+     * @param string     $feedback  Existing feedback text.
+     * @param bool       $released  Whether the grade is visible to the student.
+     * @return string  HTML fragment.
      */
     private function render_teacher_panel(int $recordid, ?float $graderaw, string $feedback, bool $released): string {
-        $fieldid  = $this->field->id;
-        $min      = s($this->field->param1 ?? '');
-        $max      = s($this->field->param2 ?? '');
+        $fieldid = $this->field->id;
+        $min = s($this->field->param1 ?? '');
+        $max = s($this->field->param2 ?? '');
         $decimals = (int) ($this->field->param3 ?? 2);
-        $value    = ($graderaw !== null) ? number_format($graderaw, $decimals, '.', '') : '';
+        $value = ($graderaw !== null) ? number_format($graderaw, $decimals, '.', '') : '';
         $maxlabel = ($max !== '') ? ' / ' . $max : '';
 
-        $releasedtext   = get_string('gradedreleased', 'local_datagrading');
+        $releasedtext = get_string('gradedreleased', 'local_datagrading');
         $unreleasedtext = get_string('gradenotreleased', 'local_datagrading');
-        $feedbacklabel  = get_string('feedbacklabel', 'local_datagrading');
-        $gradelabel     = get_string('grade', 'local_datagrading');
+        $feedbacklabel = get_string('feedbacklabel', 'local_datagrading');
+        $gradelabel = get_string('grade', 'local_datagrading');
 
-        $html  = '<div class="gradeentry-teacher-panel">';
+        $html = '<div class="gradeentry-teacher-panel">';
 
-        // Grade input row.
         $html .= '<div class="gradeentry-input-group d-flex align-items-center gap-2 mb-2">';
-        $html .= '<label class="visually-hidden" for="gradeentry-' . $recordid . '-' . $fieldid . '">' . $gradelabel . '</label>';
+        $html .= '<label class="visually-hidden" for="gradeentry-' . $recordid . '-' . $fieldid . '">';
+        $html .= $gradelabel . '</label>';
         $html .= '<input type="number" step="any"';
         $html .= ' id="gradeentry-' . $recordid . '-' . $fieldid . '"';
         $html .= ' class="form-control form-control-sm gradeentry-grade-input" style="width:7rem"';
@@ -116,11 +140,9 @@ class data_field_gradeentry extends data_field_base {
         $html .= ' data-gradeentry-status data-recordid="' . $recordid . '" aria-live="polite"></span>';
         $html .= '</div>';
 
-        // Feedback textarea.
         $html .= '<div class="gradeentry-feedback-group mb-2">';
         $html .= '<label class="form-label small mb-1" for="gradeentry-feedback-' . $recordid . '">';
-        $html .= $feedbacklabel;
-        $html .= '</label>';
+        $html .= $feedbacklabel . '</label>';
         $html .= '<textarea';
         $html .= ' id="gradeentry-feedback-' . $recordid . '"';
         $html .= ' class="form-control form-control-sm"';
@@ -130,7 +152,6 @@ class data_field_gradeentry extends data_field_base {
         $html .= '>' . s($feedback) . '</textarea>';
         $html .= '</div>';
 
-        // Release toggle.
         $html .= '<div class="gradeentry-release-group">';
         $html .= '<div class="form-check form-check-inline">';
         $html .= '<input type="checkbox" class="form-check-input"';
@@ -156,27 +177,32 @@ class data_field_gradeentry extends data_field_base {
     }
 
     /**
-     * Render the student-facing grade/feedback view.
+     * Render the student-facing grade and feedback view.
+     *
+     * @param float|null $graderaw  The stored grade, or null if ungraded.
+     * @param string     $feedback  Teacher feedback text.
+     * @param bool       $released  Whether the grade has been released.
+     * @return string  HTML fragment.
      */
     private function render_student_view(?float $graderaw, string $feedback, bool $released): string {
         if (!$released || $graderaw === null) {
             return '<span class="text-muted">' . get_string('gradepending', 'local_datagrading') . '</span>';
         }
 
-        $decimals  = (int) ($this->field->param3 ?? 2);
+        $decimals = (int) ($this->field->param3 ?? 2);
         $formatted = number_format($graderaw, $decimals);
-        $max       = (string) ($this->field->param2 ?? '');
+        $max = (string) ($this->field->param2 ?? '');
 
         if ($max !== '') {
             $formatted .= ' / ' . s($max);
         }
 
         if (!empty($this->field->param4) && $max !== '' && (float) $max > 0) {
-            $pct        = number_format(($graderaw / (float) $max) * 100, 1);
+            $pct = number_format(($graderaw / (float) $max) * 100, 1);
             $formatted .= ' (' . $pct . '%)';
         }
 
-        $html  = '<div class="gradeentry-student-view">';
+        $html = '<div class="gradeentry-student-view">';
         $html .= '<strong>' . $formatted . '</strong>';
         if ($feedback !== '') {
             $html .= '<p class="mt-1 text-muted small">' . format_text($feedback, FORMAT_MOODLE) . '</p>';
@@ -187,16 +213,25 @@ class data_field_gradeentry extends data_field_base {
     }
 
     /**
-     * Render the search field.
+     * Render the search input for this field.
+     *
+     * @param mixed $value  Current search value.
+     * @return string  HTML fragment.
      */
     public function display_search_field($value = '') {
         $fieldid = 'f_' . $this->field->id;
-        $value   = s($value);
+        $value = s($value);
         return '<label for="' . $fieldid . '">' . $this->field->name . '</label>'
             . '<input type="number" step="any" class="form-control" '
             . 'name="' . $fieldid . '" id="' . $fieldid . '" value="' . $value . '" />';
     }
 
+    /**
+     * Extract the submitted search value from form data or request parameters.
+     *
+     * @param array|null $defaults  Pre-populated defaults.
+     * @return mixed  The search value.
+     */
     public function parse_search_field($defaults = null) {
         $param = 'f_' . $this->field->id;
         if (isset($defaults[$param])) {
@@ -205,11 +240,18 @@ class data_field_gradeentry extends data_field_base {
         return optional_param($param, '', PARAM_RAW);
     }
 
+    /**
+     * Build a SQL WHERE fragment for searching this field.
+     *
+     * @param string $tablealias  Alias for the data_content table.
+     * @param mixed  $value       The search value.
+     * @return array{string, array}  [sql, params].
+     */
     public function generate_sql($tablealias, $value) {
         global $DB;
         static $i = 0;
         $i++;
-        $name  = "df_gradeentry_{$i}";
+        $name = "df_gradeentry_{$i}";
         $value = (float) $value;
         return [
             " ({$tablealias}.fieldid = {$this->field->id} AND {$tablealias}.content = :{$name}) ",
@@ -218,10 +260,10 @@ class data_field_gradeentry extends data_field_base {
     }
 
     /**
-     * Validate a submitted grade value against field bounds.
+     * Validate a submitted grade value against the field's configured bounds.
      *
-     * @param  mixed $value
-     * @return true|string  true on success, error string on failure.
+     * @param mixed $value  The submitted value.
+     * @return true|string  True on success, an error string on failure.
      */
     public function field_validation($value) {
         if ($value === '' || $value === null) {
@@ -243,7 +285,12 @@ class data_field_gradeentry extends data_field_base {
     }
 
     /**
-     * Persist a grade value to data_content (used by the standard form path).
+     * Persist a grade value to data_content (standard form submission path).
+     *
+     * @param int    $recordid  Database record ID.
+     * @param mixed  $value     Grade value to store.
+     * @param string $name      Field name (unused).
+     * @return bool
      */
     public function update_content($recordid, $value, $name = '') {
         global $DB;
@@ -259,22 +306,40 @@ class data_field_gradeentry extends data_field_base {
             $DB->update_record('data_content', $content);
         } else {
             $DB->insert_record('data_content', (object) [
-                'fieldid'  => $this->field->id,
+                'fieldid' => $this->field->id,
                 'recordid' => $recordid,
-                'content'  => ($value !== '') ? (float) $value : null,
+                'content' => ($value !== '') ? (float) $value : null,
             ]);
         }
         return true;
     }
 
+    /**
+     * Return true when the field contains a non-empty value.
+     *
+     * @param mixed  $value  Field value.
+     * @param string $name   Field name (unused).
+     * @return bool
+     */
     public function notemptyfield($value, $name) {
         return ($value !== '' && $value !== null);
     }
 
+    /**
+     * Return a plain-text representation suitable for CSV export.
+     *
+     * @param stdClass $record  Content record from data_content.
+     * @return string
+     */
     public function export_text_value($record) {
         return $record->content ?? '';
     }
 
+    /**
+     * Return human-readable labels for each param slot used by this field.
+     *
+     * @return array<string,string>  Map of param key to display label.
+     */
     public function get_field_params() {
         return [
             'param1' => get_string('mingrade', 'datafield_gradeentry'),

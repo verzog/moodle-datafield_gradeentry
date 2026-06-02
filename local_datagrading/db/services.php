@@ -15,6 +15,8 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
+ * External function (web service) definitions for local_datagrading.
+ *
  * @package    local_datagrading
  * @copyright  2025 onwards, Australian developers
  * @license    https://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
@@ -25,26 +27,26 @@ defined('MOODLE_INTERNAL') || die();
 $functions = [
 
     'local_datagrading_save_grade' => [
-        'classname'   => \local_datagrading\external\save_grade::class,
+        'classname' => \local_datagrading\external\save_grade::class,
         'description' => 'Save a grade and optional feedback for a database entry.',
-        'type'        => 'write',
-        'ajax'        => true,
+        'type' => 'write',
+        'ajax' => true,
         'capabilities' => 'local/datagrading:grade',
     ],
 
     'local_datagrading_release_grades' => [
-        'classname'   => \local_datagrading\external\release_grades::class,
+        'classname' => \local_datagrading\external\release_grades::class,
         'description' => 'Release one or all grades in a database activity to students.',
-        'type'        => 'write',
-        'ajax'        => true,
+        'type' => 'write',
+        'ajax' => true,
         'capabilities' => 'local/datagrading:grade',
     ],
 
     'local_datagrading_get_progress' => [
-        'classname'   => \local_datagrading\external\get_progress::class,
+        'classname' => \local_datagrading\external\get_progress::class,
         'description' => 'Return grading progress counts for a database activity.',
-        'type'        => 'read',
-        'ajax'        => true,
+        'type' => 'read',
+        'ajax' => true,
         'capabilities' => 'local/datagrading:grade',
     ],
 ];

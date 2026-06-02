@@ -15,6 +15,8 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
+ * Language strings for the datafield_gradeentry plugin.
+ *
  * @package    datafield_gradeentry
  * @copyright  2025 onwards, Australian developers
  * @license    https://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later

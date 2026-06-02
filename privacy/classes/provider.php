@@ -15,6 +15,8 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
+ * Privacy provider for the datafield_gradeentry plugin.
+ *
  * @package    datafield_gradeentry
  * @copyright  2025 onwards, Australian developers
  * @license    https://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
@@ -23,47 +25,48 @@
 namespace datafield_gradeentry\privacy;
 
 use core_privacy\local\metadata\collection;
-use core_privacy\local\request\contextlist;
-use core_privacy\local\request\approved_contextlist;
 
+/**
+ * Implements the Privacy API for datafield_gradeentry (Australian Privacy Principles).
+ */
 class provider implements
     \core_privacy\local\metadata\provider,
     \mod_data\privacy\datafield_provider {
-
     /**
      * Describe the data stored by this plugin.
+     *
+     * @param collection $collection  Metadata collection to populate.
+     * @return collection
      */
     public static function get_metadata(collection $collection): collection {
-        $collection->add_plugintype_link(
-            'mod_data',
-            [],
-            'privacy:metadata'
-        );
+        $collection->add_plugintype_link('mod_data', [], 'privacy:metadata');
         return $collection;
     }
 
     /**
      * Export user data for a database entry that uses this field.
      *
-     * @param \mod_data\privacy\data_fields_exporter $exporter
+     * Grade values are plain numeric content stored in mod_data's data_content
+     * table. The mod_data privacy provider handles export; nothing extra here.
+     *
+     * @param \mod_data\privacy\data_fields_exporter $exporter  Exporter instance.
      */
     public static function export_data_content_for_user(\mod_data\privacy\data_fields_exporter $exporter): void {
-        // Grade values are plain numeric content stored in mod_data's data_content table.
-        // The mod_data privacy provider handles export; no additional data to export here.
+        // No additional data beyond what mod_data already exports.
     }
 
     /**
      * Delete user data for a database entry that uses this field.
      *
-     * @param \context $context  The context to delete data for.
-     * @param array    $fieldids The field IDs to delete.
-     * @param array    $contentids The content IDs to delete.
+     * @param \context $context    The context to delete data for.
+     * @param array    $fieldids   Field IDs to delete.
+     * @param array    $contentids Content IDs to delete.
      */
     public static function delete_data_content_for_user(
         \context $context,
         array $fieldids,
         array $contentids
     ): void {
-        // mod_data privacy provider handles deletion of data_content rows.
+        // Deletion of data_content rows is handled by mod_data's privacy provider.
     }
 }

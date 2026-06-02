@@ -15,6 +15,8 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
+ * Unit tests for data_field_gradeentry.
+ *
  * @package    datafield_gradeentry
  * @copyright  2025 onwards, Australian developers
  * @license    https://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
@@ -22,41 +24,44 @@
 
 namespace datafield_gradeentry\tests;
 
-defined('MOODLE_INTERNAL') || die();
-
 global $CFG;
 require_once($CFG->dirroot . '/mod/data/field/gradeentry/field.class.php');
 
 /**
- * Unit tests for data_field_gradeentry.
+ * Unit tests for the grade entry field validation logic.
  *
  * @covers \data_field_gradeentry
  */
 class field_test extends \advanced_testcase {
-
-    /** @var \stdClass Field stub. */
+    /** @var \stdClass Stub field record shared across tests. */
     private \stdClass $fieldrecord;
 
+    /**
+     * Set up a minimal field record stub before each test.
+     */
     protected function setUp(): void {
         parent::setUp();
         $this->resetAfterTest();
 
         $this->fieldrecord = (object) [
-            'id'       => 1,
-            'dataid'   => 1,
-            'type'     => 'gradeentry',
-            'name'     => 'Test grade',
+            'id' => 1,
+            'dataid' => 1,
+            'type' => 'gradeentry',
+            'name' => 'Test grade',
             'description' => '',
             'required' => 0,
-            'param1'   => '0',   // min
-            'param2'   => '100', // max
-            'param3'   => '2',   // decimals
-            'param4'   => '',    // show as percentage
+            'param1' => '0',
+            'param2' => '100',
+            'param3' => '2',
+            'param4' => '',
         ];
     }
 
     /**
-     * Helper to instantiate the field with a stub field record.
+     * Build a field instance, optionally overriding field record properties.
+     *
+     * @param \stdClass|null $overrides  Key-value pairs to override.
+     * @return \data_field_gradeentry
      */
     private function make_field(\stdClass $overrides = null): \data_field_gradeentry {
         $rec = clone $this->fieldrecord;
@@ -65,25 +70,36 @@ class field_test extends \advanced_testcase {
                 $rec->$k = $v;
             }
         }
-        // data_field_base constructor accepts (field, data, cm).
         return new \data_field_gradeentry($rec);
     }
 
+    /**
+     * A valid integer grade passes validation.
+     */
     public function test_valid_integer(): void {
         $field = $this->make_field();
         $this->assertTrue($field->field_validation('75') === true);
     }
 
+    /**
+     * A valid decimal grade passes validation.
+     */
     public function test_valid_decimal(): void {
         $field = $this->make_field();
         $this->assertTrue($field->field_validation('99.5') === true);
     }
 
+    /**
+     * An empty value is treated as valid (field is optional).
+     */
     public function test_empty_value_is_valid(): void {
         $field = $this->make_field();
         $this->assertTrue($field->field_validation('') === true);
     }
 
+    /**
+     * A non-numeric string returns an error message.
+     */
     public function test_non_numeric_returns_error(): void {
         $field = $this->make_field();
         $result = $field->field_validation('abc');
@@ -91,24 +107,36 @@ class field_test extends \advanced_testcase {
         $this->assertStringContainsString('numeric', $result);
     }
 
+    /**
+     * A value below the configured minimum returns an error.
+     */
     public function test_below_minimum_returns_error(): void {
         $field = $this->make_field(['param1' => '0', 'param2' => '100']);
         $result = $field->field_validation('-1');
         $this->assertIsString($result);
     }
 
+    /**
+     * A value above the configured maximum returns an error.
+     */
     public function test_above_maximum_returns_error(): void {
         $field = $this->make_field(['param1' => '0', 'param2' => '100']);
         $result = $field->field_validation('101');
         $this->assertIsString($result);
     }
 
+    /**
+     * Values exactly at the boundary (min and max) pass validation.
+     */
     public function test_at_boundary_values(): void {
         $field = $this->make_field(['param1' => '0', 'param2' => '100']);
         $this->assertTrue($field->field_validation('0') === true);
         $this->assertTrue($field->field_validation('100') === true);
     }
 
+    /**
+     * Non-empty values return true from notemptyfield; empty values return false.
+     */
     public function test_notemptyfield(): void {
         $field = $this->make_field();
         $this->assertTrue($field->notemptyfield('50', ''));

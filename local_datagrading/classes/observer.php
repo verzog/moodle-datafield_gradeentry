@@ -15,6 +15,8 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
+ * Event observers for the local_datagrading plugin.
+ *
  * @package    local_datagrading
  * @copyright  2025 onwards, Australian developers
  * @license    https://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
@@ -23,14 +25,13 @@
 namespace local_datagrading;
 
 /**
- * Event observers for local_datagrading.
+ * Handles Moodle events fired by local_datagrading and reacts accordingly.
  */
 class observer {
-
     /**
-     * Sync a saved grade to the Moodle gradebook.
+     * Sync a saved grade to the Moodle gradebook when an entry is graded.
      *
-     * @param \local_datagrading\event\entry_graded $event
+     * @param \local_datagrading\event\entry_graded $event  The grading event.
      */
     public static function sync_to_gradebook(\local_datagrading\event\entry_graded $event): void {
         global $DB;
@@ -38,7 +39,7 @@ class observer {
         $data = $event->get_data();
         $cmid = $data['contextinstanceid'];
 
-        $cm     = get_coursemodule_from_id('data', $cmid, 0, false, IGNORE_MISSING);
+        $cm = get_coursemodule_from_id('data', $cmid, 0, false, IGNORE_MISSING);
         if (!$cm) {
             return;
         }
@@ -51,7 +52,7 @@ class observer {
         $datarecord->_maxgrade = $data['other']['maxgrade'];
 
         $gradeobject = (object) [
-            'userid'   => $data['relateduserid'],
+            'userid' => $data['relateduserid'],
             'rawgrade' => $data['other']['grade'],
         ];
 

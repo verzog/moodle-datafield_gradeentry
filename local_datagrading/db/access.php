@@ -15,6 +15,8 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
+ * Capability definitions for the local_datagrading plugin.
+ *
  * @package    local_datagrading
  * @copyright  2025 onwards, Australian developers
  * @license    https://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
@@ -24,26 +26,24 @@ defined('MOODLE_INTERNAL') || die();
 
 $capabilities = [
 
-    // Ability to grade entries in a database activity.
     'local/datagrading:grade' => [
-        'captype'      => 'write',
+        'captype' => 'write',
         'contextlevel' => CONTEXT_MODULE,
-        'archetypes'   => [
-            'teacher'        => CAP_ALLOW,
+        'archetypes' => [
+            'teacher' => CAP_ALLOW,
             'editingteacher' => CAP_ALLOW,
-            'manager'        => CAP_ALLOW,
+            'manager' => CAP_ALLOW,
         ],
     ],
 
-    // Ability to view released grades on own entries.
     'local/datagrading:viewgrades' => [
-        'captype'      => 'read',
+        'captype' => 'read',
         'contextlevel' => CONTEXT_MODULE,
-        'archetypes'   => [
-            'student'        => CAP_ALLOW,
-            'teacher'        => CAP_ALLOW,
+        'archetypes' => [
+            'student' => CAP_ALLOW,
+            'teacher' => CAP_ALLOW,
             'editingteacher' => CAP_ALLOW,
-            'manager'        => CAP_ALLOW,
+            'manager' => CAP_ALLOW,
         ],
     ],
 ];

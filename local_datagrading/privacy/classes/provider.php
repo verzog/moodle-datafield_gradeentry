@@ -15,6 +15,8 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
+ * Privacy provider for the local_datagrading plugin.
+ *
  * @package    local_datagrading
  * @copyright  2025 onwards, Australian developers
  * @license    https://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
@@ -24,31 +26,41 @@ namespace local_datagrading\privacy;
 
 use core_privacy\local\metadata\collection;
 use core_privacy\local\request\approved_contextlist;
-use core_privacy\local\request\contextlist;
-use core_privacy\local\request\deletion_criteria;
-use core_privacy\local\request\userlist;
 use core_privacy\local\request\approved_userlist;
+use core_privacy\local\request\contextlist;
+use core_privacy\local\request\userlist;
 
 /**
- * Privacy provider for local_datagrading (Australian Privacy Principles compliant).
+ * Implements the Privacy API for local_datagrading (Australian Privacy Principles compliant).
  */
 class provider implements
     \core_privacy\local\metadata\provider,
-    \core_privacy\local\request\plugin\provider,
-    \core_privacy\local\request\core_userlist_provider {
-
+    \core_privacy\local\request\core_userlist_provider,
+    \core_privacy\local\request\plugin\provider {
+    /**
+     * Describe the personal data stored by this plugin.
+     *
+     * @param collection $collection  Metadata collection to populate.
+     * @return collection
+     */
     public static function get_metadata(collection $collection): collection {
         $collection->add_database_table('local_datagrading_grades', [
-            'userid'    => 'privacy:metadata:local_datagrading_grades:userid',
-            'graderid'  => 'privacy:metadata:local_datagrading_grades:graderid',
-            'grade'     => 'privacy:metadata:local_datagrading_grades:grade',
-            'feedback'  => 'privacy:metadata:local_datagrading_grades:feedback',
-            'released'  => 'privacy:metadata:local_datagrading_grades:released',
+            'userid' => 'privacy:metadata:local_datagrading_grades:userid',
+            'graderid' => 'privacy:metadata:local_datagrading_grades:graderid',
+            'grade' => 'privacy:metadata:local_datagrading_grades:grade',
+            'feedback' => 'privacy:metadata:local_datagrading_grades:feedback',
+            'released' => 'privacy:metadata:local_datagrading_grades:released',
         ], 'privacy:metadata:local_datagrading_grades');
 
         return $collection;
     }
 
+    /**
+     * Return the list of contexts that contain personal data for the given user.
+     *
+     * @param int $userid  The user ID to search for.
+     * @return contextlist
+     */
     public static function get_contexts_for_userid(int $userid): contextlist {
         $contextlist = new contextlist();
         $contextlist->add_from_sql(
@@ -65,12 +77,18 @@ class provider implements
         return $contextlist;
     }
 
+    /**
+     * Return users who have data within the given context.
+     *
+     * @param userlist $userlist  The userlist to populate.
+     */
     public static function get_users_in_context(userlist $userlist): void {
         $context = $userlist->get_context();
         if ($context->contextlevel !== CONTEXT_MODULE) {
             return;
         }
-        $userlist->add_from_sql('userid',
+        $userlist->add_from_sql(
+            'userid',
             "SELECT lg.userid
                FROM {local_datagrading_grades} lg
                JOIN {data} d ON d.id = lg.dataid
@@ -79,6 +97,11 @@ class provider implements
         );
     }
 
+    /**
+     * Export personal data for the given user across the approved contexts.
+     *
+     * @param approved_contextlist $contextlist  Approved contexts to export.
+     */
     public static function export_user_data(approved_contextlist $contextlist): void {
         global $DB;
 
@@ -106,7 +129,7 @@ class provider implements
                     [get_string('pluginname', 'local_datagrading')],
                     (object) [
                         'recordid' => $row->recordid,
-                        'grade'    => $row->graderid ? $row->grade ?? '' : '',
+                        'grade' => $row->graderid ? ($row->grade ?? '') : '',
                         'feedback' => $row->graderid ? $row->feedback : '',
                         'released' => (bool) $row->released,
                     ]
@@ -115,6 +138,11 @@ class provider implements
         }
     }
 
+    /**
+     * Delete all personal data for all users within the given context.
+     *
+     * @param \context $context  The context to delete data for.
+     */
     public static function delete_data_for_all_users_in_context(\context $context): void {
         global $DB;
 
@@ -127,6 +155,11 @@ class provider implements
         }
     }
 
+    /**
+     * Delete personal data for the given user within the approved contexts.
+     *
+     * @param approved_contextlist $contextlist  Approved contexts for deletion.
+     */
     public static function delete_data_for_user(approved_contextlist $contextlist): void {
         global $DB;
 
@@ -137,11 +170,19 @@ class provider implements
             }
             $cm = get_coursemodule_from_id('data', $context->instanceid, 0, false, IGNORE_MISSING);
             if ($cm) {
-                $DB->delete_records('local_datagrading_grades', ['dataid' => $cm->instance, 'userid' => $userid]);
+                $DB->delete_records(
+                    'local_datagrading_grades',
+                    ['dataid' => $cm->instance, 'userid' => $userid]
+                );
             }
         }
     }
 
+    /**
+     * Delete personal data for a list of users within the given context.
+     *
+     * @param approved_userlist $userlist  Users approved for deletion in the context.
+     */
     public static function delete_data_for_users(approved_userlist $userlist): void {
         global $DB;
 

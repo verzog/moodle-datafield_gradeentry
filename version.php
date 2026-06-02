@@ -15,15 +15,15 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
+ * Plugin version and dependency metadata for datafield_gradeentry.
+ *
  * @package    datafield_gradeentry
  * @copyright  2025 onwards, Australian developers
  * @license    https://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
-
-$plugin->version   = 2025120800;
-$plugin->requires  = 2024100700; // Moodle 5.0.
+$plugin->version   = 2025120801;
+$plugin->requires  = 2024100700;
 $plugin->component = 'datafield_gradeentry';
 $plugin->maturity  = MATURITY_STABLE;
-$plugin->release   = '1.0.0';
+$plugin->release   = '1.0.1';

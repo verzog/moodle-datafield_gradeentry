@@ -15,6 +15,8 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
+ * External function to return grading progress counts for a database activity.
+ *
  * @package    local_datagrading
  * @copyright  2025 onwards, Australian developers
  * @license    https://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
@@ -28,10 +30,14 @@ use core_external\external_single_structure;
 use core_external\external_value;
 
 /**
- * Web service: return grading progress counts for a database activity.
+ * Returns the number of graded and total entries for a database activity.
  */
 class get_progress extends external_api {
-
+    /**
+     * Declare the expected input parameters.
+     *
+     * @return external_function_parameters
+     */
     public static function execute_parameters(): external_function_parameters {
         return new external_function_parameters([
             'cmid' => new external_value(PARAM_INT, 'Course-module ID of the database activity'),
@@ -39,13 +45,15 @@ class get_progress extends external_api {
     }
 
     /**
-     * @param  int $cmid
+     * Return graded and total entry counts for the given course module.
+     *
+     * @param int $cmid  Course-module ID.
      * @return array{graded: int, total: int}
      */
     public static function execute(int $cmid): array {
         ['cmid' => $cmid] = self::validate_parameters(self::execute_parameters(), ['cmid' => $cmid]);
 
-        $cm      = get_coursemodule_from_id('data', $cmid, 0, false, MUST_EXIST);
+        $cm = get_coursemodule_from_id('data', $cmid, 0, false, MUST_EXIST);
         $context = \context_module::instance($cm->id);
         self::validate_context($context);
         require_capability('local/datagrading:grade', $context);
@@ -53,10 +61,15 @@ class get_progress extends external_api {
         return \local_datagrading\grade_manager::progress($cm->instance);
     }
 
+    /**
+     * Declare the return value structure.
+     *
+     * @return external_single_structure
+     */
     public static function execute_returns(): external_single_structure {
         return new external_single_structure([
             'graded' => new external_value(PARAM_INT, 'Number of graded entries'),
-            'total'  => new external_value(PARAM_INT, 'Total number of entries'),
+            'total' => new external_value(PARAM_INT, 'Total number of entries'),
         ]);
     }
 }
