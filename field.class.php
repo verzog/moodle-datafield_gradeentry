@@ -1,4 +1,4 @@
-<?php
+&lt;?php
 // This file is part of Moodle - https://moodle.org/
 //
 // Moodle is free software: you can redistribute it and/or modify
@@ -12,7 +12,7 @@
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
+// along with Moodle.  If not, see &lt;https://www.gnu.org/licenses/&gt;.
 
 /**
  * Grade entry field class for the Moodle Database activity.
@@ -67,29 +67,29 @@ class data_field_gradeentry extends data_field_base {
     public function display_browse_field($recordid, $template) {
         global $DB;
 
-        $context = context_module::instance($this->cm->id);
+        $context = context_module::instance($this-&gt;cm-&gt;id);
         $isteacher = has_capability('local/datagrading:grade', $context);
 
-        $content = $DB->get_record('data_content', ['fieldid' => $this->field->id, 'recordid' => $recordid]);
-        $graderaw = ($content && $content->content !== null && $content->content !== '')
-            ? (float) $content->content : null;
+        $content = $DB-&gt;get_record('data_content', ['fieldid' =&gt; $this-&gt;field-&gt;id, 'recordid' =&gt; $recordid]);
+        $graderaw = ($content &amp;&amp; $content-&gt;content !== null &amp;&amp; $content-&gt;content !== '')
+            ? (float) $content-&gt;content : null;
 
         $meta = null;
         if (\core_component::get_component_directory('local_datagrading')) {
-            $meta = $DB->get_record('local_datagrading_grades', [
-                'dataid' => $this->field->dataid,
-                'recordid' => $recordid,
+            $meta = $DB-&gt;get_record('local_datagrading_grades', [
+                'dataid' =&gt; $this-&gt;field-&gt;dataid,
+                'recordid' =&gt; $recordid,
             ]);
         }
 
-        $released = $meta ? (bool) $meta->released : false;
-        $feedback = $meta ? (string) $meta->feedback : '';
+        $released = $meta ? (bool) $meta-&gt;released : false;
+        $feedback = $meta ? (string) $meta-&gt;feedback : '';
 
         if ($isteacher) {
-            return $this->render_teacher_panel($recordid, $graderaw, $feedback, $released);
+            return $this-&gt;render_teacher_panel($recordid, $graderaw, $feedback, $released);
         }
 
-        return $this->render_student_view($graderaw, $feedback, $released);
+        return $this-&gt;render_student_view($graderaw, $feedback, $released);
     }
 
     /**
@@ -102,10 +102,10 @@ class data_field_gradeentry extends data_field_base {
      * @return string  HTML fragment.
      */
     private function render_teacher_panel(int $recordid, ?float $graderaw, string $feedback, bool $released): string {
-        $fieldid = $this->field->id;
-        $min = s($this->field->param1 ?? '');
-        $max = s($this->field->param2 ?? '');
-        $decimals = (int) ($this->field->param3 ?? 2);
+        $fieldid = $this-&gt;field-&gt;id;
+        $min = s($this-&gt;field-&gt;param1 ?? '');
+        $max = s($this-&gt;field-&gt;param2 ?? '');
+        $decimals = (int) ($this-&gt;field-&gt;param3 ?? 2);
         $value = ($graderaw !== null) ? number_format($graderaw, $decimals, '.', '') : '';
         $maxlabel = ($max !== '') ? ' / ' . $max : '';
 
@@ -114,12 +114,12 @@ class data_field_gradeentry extends data_field_base {
         $feedbacklabel = get_string('feedbacklabel', 'local_datagrading');
         $gradelabel = get_string('grade', 'local_datagrading');
 
-        $html = '<div class="gradeentry-teacher-panel">';
+        $html = '&lt;div class="gradeentry-teacher-panel"&gt;';
 
-        $html .= '<div class="gradeentry-input-group d-flex align-items-center gap-2 mb-2">';
-        $html .= '<label class="visually-hidden" for="gradeentry-' . $recordid . '-' . $fieldid . '">';
-        $html .= $gradelabel . '</label>';
-        $html .= '<input type="number" step="any"';
+        $html .= '&lt;div class="gradeentry-input-group d-flex align-items-center gap-2 mb-2"&gt;';
+        $html .= '&lt;label class="visually-hidden" for="gradeentry-' . $recordid . '-' . $fieldid . '"&gt;';
+        $html .= $gradelabel . '&lt;/label&gt;';
+        $html .= '&lt;input type="number" step="any"';
         $html .= ' id="gradeentry-' . $recordid . '-' . $fieldid . '"';
         $html .= ' class="form-control form-control-sm gradeentry-grade-input" style="width:7rem"';
         $html .= ' data-gradeentry-field';
@@ -132,46 +132,46 @@ class data_field_gradeentry extends data_field_base {
         if ($max !== '') {
             $html .= ' max="' . $max . '"';
         }
-        $html .= ' />';
+        $html .= ' /&gt;';
         if ($maxlabel !== '') {
-            $html .= '<span class="text-muted small">' . s($maxlabel) . '</span>';
+            $html .= '&lt;span class="text-muted small"&gt;' . s($maxlabel) . '&lt;/span&gt;';
         }
-        $html .= '<span class="gradeentry-status small text-muted"';
-        $html .= ' data-gradeentry-status data-recordid="' . $recordid . '" aria-live="polite"></span>';
-        $html .= '</div>';
+        $html .= '&lt;span class="gradeentry-status small text-muted"';
+        $html .= ' data-gradeentry-status data-recordid="' . $recordid . '" aria-live="polite"&gt;&lt;/span&gt;';
+        $html .= '&lt;/div&gt;';
 
-        $html .= '<div class="gradeentry-feedback-group mb-2">';
-        $html .= '<label class="form-label small mb-1" for="gradeentry-feedback-' . $recordid . '">';
-        $html .= $feedbacklabel . '</label>';
-        $html .= '<textarea';
+        $html .= '&lt;div class="gradeentry-feedback-group mb-2"&gt;';
+        $html .= '&lt;label class="form-label small mb-1" for="gradeentry-feedback-' . $recordid . '"&gt;';
+        $html .= $feedbacklabel . '&lt;/label&gt;';
+        $html .= '&lt;textarea';
         $html .= ' id="gradeentry-feedback-' . $recordid . '"';
         $html .= ' class="form-control form-control-sm"';
         $html .= ' rows="2"';
         $html .= ' data-gradeentry-feedback';
         $html .= ' data-recordid="' . $recordid . '"';
-        $html .= '>' . s($feedback) . '</textarea>';
-        $html .= '</div>';
+        $html .= '&gt;' . s($feedback) . '&lt;/textarea&gt;';
+        $html .= '&lt;/div&gt;';
 
-        $html .= '<div class="gradeentry-release-group">';
-        $html .= '<div class="form-check form-check-inline">';
-        $html .= '<input type="checkbox" class="form-check-input"';
+        $html .= '&lt;div class="gradeentry-release-group"&gt;';
+        $html .= '&lt;div class="form-check form-check-inline"&gt;';
+        $html .= '&lt;input type="checkbox" class="form-check-input"';
         $html .= ' id="gradeentry-release-' . $recordid . '"';
         $html .= ' data-gradeentry-release';
         $html .= ' data-recordid="' . $recordid . '"';
         if ($released) {
             $html .= ' checked';
         }
-        $html .= ' />';
-        $html .= '<label class="form-check-label small gradeentry-release-label"';
+        $html .= ' /&gt;';
+        $html .= '&lt;label class="form-check-label small gradeentry-release-label"';
         $html .= ' for="gradeentry-release-' . $recordid . '"';
         $html .= ' data-released-text="' . s($releasedtext) . '"';
-        $html .= ' data-unreleased-text="' . s($unreleasedtext) . '">';
+        $html .= ' data-unreleased-text="' . s($unreleasedtext) . '"&gt;';
         $html .= $released ? $releasedtext : $unreleasedtext;
-        $html .= '</label>';
-        $html .= '</div>';
-        $html .= '</div>';
+        $html .= '&lt;/label&gt;';
+        $html .= '&lt;/div&gt;';
+        $html .= '&lt;/div&gt;';
 
-        $html .= '</div>';
+        $html .= '&lt;/div&gt;';
 
         return $html;
     }
@@ -186,28 +186,28 @@ class data_field_gradeentry extends data_field_base {
      */
     private function render_student_view(?float $graderaw, string $feedback, bool $released): string {
         if (!$released || $graderaw === null) {
-            return '<span class="text-muted">' . get_string('gradepending', 'local_datagrading') . '</span>';
+            return '&lt;span class="text-muted"&gt;' . get_string('gradepending', 'local_datagrading') . '&lt;/span&gt;';
         }
 
-        $decimals = (int) ($this->field->param3 ?? 2);
+        $decimals = (int) ($this-&gt;field-&gt;param3 ?? 2);
         $formatted = number_format($graderaw, $decimals);
-        $max = (string) ($this->field->param2 ?? '');
+        $max = (string) ($this-&gt;field-&gt;param2 ?? '');
 
         if ($max !== '') {
             $formatted .= ' / ' . s($max);
         }
 
-        if (!empty($this->field->param4) && $max !== '' && (float) $max > 0) {
+        if (!empty($this-&gt;field-&gt;param4) &amp;&amp; $max !== '' &amp;&amp; (float) $max &gt; 0) {
             $pct = number_format(($graderaw / (float) $max) * 100, 1);
             $formatted .= ' (' . $pct . '%)';
         }
 
-        $html = '<div class="gradeentry-student-view">';
-        $html .= '<strong>' . $formatted . '</strong>';
+        $html = '&lt;div class="gradeentry-student-view"&gt;';
+        $html .= '&lt;strong&gt;' . $formatted . '&lt;/strong&gt;';
         if ($feedback !== '') {
-            $html .= '<p class="mt-1 text-muted small">' . format_text($feedback, FORMAT_MOODLE) . '</p>';
+            $html .= '&lt;p class="mt-1 text-muted small"&gt;' . format_text($feedback, FORMAT_MOODLE) . '&lt;/p&gt;';
         }
-        $html .= '</div>';
+        $html .= '&lt;/div&gt;';
 
         return $html;
     }
@@ -219,11 +219,11 @@ class data_field_gradeentry extends data_field_base {
      * @return string  HTML fragment.
      */
     public function display_search_field($value = '') {
-        $fieldid = 'f_' . $this->field->id;
+        $fieldid = 'f_' . $this-&gt;field-&gt;id;
         $value = s($value);
-        return '<label for="' . $fieldid . '">' . $this->field->name . '</label>'
-            . '<input type="number" step="any" class="form-control" '
-            . 'name="' . $fieldid . '" id="' . $fieldid . '" value="' . $value . '" />';
+        return '&lt;label for="' . $fieldid . '"&gt;' . $this-&gt;field-&gt;name . '&lt;/label&gt;'
+            . '&lt;input type="number" step="any" class="form-control" '
+            . 'name="' . $fieldid . '" id="' . $fieldid . '" value="' . $value . '" /&gt;';
     }
 
     /**
@@ -233,7 +233,7 @@ class data_field_gradeentry extends data_field_base {
      * @return mixed  The search value.
      */
     public function parse_search_field($defaults = null) {
-        $param = 'f_' . $this->field->id;
+        $param = 'f_' . $this-&gt;field-&gt;id;
         if (isset($defaults[$param])) {
             return $defaults[$param];
         }
@@ -254,9 +254,9 @@ class data_field_gradeentry extends data_field_base {
         $name = "df_gradeentry_{$i}";
         $value = (string) (float) $value;
         return [
-            " ({$tablealias}.fieldid = {$this->field->id}"
-                . " AND " . $DB->sql_compare_text("{$tablealias}.content") . " = :{$name}) ",
-            [$name => $value],
+            " ({$tablealias}.fieldid = {$this-&gt;field-&gt;id}"
+                . " AND " . $DB-&gt;sql_compare_text("{$tablealias}.content") . " = :{$name}) ",
+            [$name =&gt; $value],
         ];
     }
 
@@ -274,13 +274,13 @@ class data_field_gradeentry extends data_field_base {
             return get_string('errornumeric', 'datafield_gradeentry');
         }
         $num = (float) $value;
-        $min = (string) ($this->field->param1 ?? '');
-        $max = (string) ($this->field->param2 ?? '');
-        if ($min !== '' && $num < (float) $min) {
-            return get_string('erroroutofrange', 'datafield_gradeentry', ['min' => $min, 'max' => $max]);
+        $min = (string) ($this-&gt;field-&gt;param1 ?? '');
+        $max = (string) ($this-&gt;field-&gt;param2 ?? '');
+        if ($min !== '' &amp;&amp; $num &lt; (float) $min) {
+            return get_string('erroroutofrange', 'datafield_gradeentry', ['min' =&gt; $min, 'max' =&gt; $max]);
         }
-        if ($max !== '' && $num > (float) $max) {
-            return get_string('erroroutofrange', 'datafield_gradeentry', ['min' => $min, 'max' => $max]);
+        if ($max !== '' &amp;&amp; $num &gt; (float) $max) {
+            return get_string('erroroutofrange', 'datafield_gradeentry', ['min' =&gt; $min, 'max' =&gt; $max]);
         }
         return true;
     }
@@ -296,20 +296,20 @@ class data_field_gradeentry extends data_field_base {
     public function update_content($recordid, $value, $name = '') {
         global $DB;
 
-        $msg = $this->field_validation($value);
+        $msg = $this-&gt;field_validation($value);
         if ($msg !== true) {
             throw new moodle_exception('erroroutofrange', 'datafield_gradeentry');
         }
 
-        $content = $DB->get_record('data_content', ['fieldid' => $this->field->id, 'recordid' => $recordid]);
+        $content = $DB-&gt;get_record('data_content', ['fieldid' =&gt; $this-&gt;field-&gt;id, 'recordid' =&gt; $recordid]);
         if ($content) {
-            $content->content = ($value !== '') ? (float) $value : null;
-            $DB->update_record('data_content', $content);
+            $content-&gt;content = ($value !== '') ? (float) $value : null;
+            $DB-&gt;update_record('data_content', $content);
         } else {
-            $DB->insert_record('data_content', (object) [
-                'fieldid' => $this->field->id,
-                'recordid' => $recordid,
-                'content' => ($value !== '') ? (float) $value : null,
+            $DB-&gt;insert_record('data_content', (object) [
+                'fieldid' =&gt; $this-&gt;field-&gt;id,
+                'recordid' =&gt; $recordid,
+                'content' =&gt; ($value !== '') ? (float) $value : null,
             ]);
         }
         return true;
@@ -323,7 +323,7 @@ class data_field_gradeentry extends data_field_base {
      * @return bool
      */
     public function notemptyfield($value, $name) {
-        return ($value !== '' && $value !== null);
+        return ($value !== '' &amp;&amp; $value !== null);
     }
 
     /**
@@ -333,20 +333,20 @@ class data_field_gradeentry extends data_field_base {
      * @return string
      */
     public function export_text_value($record) {
-        return $record->content ?? '';
+        return $record-&gt;content ?? '';
     }
 
     /**
      * Return human-readable labels for each param slot used by this field.
      *
-     * @return array<string,string>  Map of param key to display label.
+     * @return array&lt;string,string&gt;  Map of param key to display label.
      */
-    public function get_field_params() {
+    public function get_field_params(): array {
         return [
-            'param1' => get_string('mingrade', 'datafield_gradeentry'),
-            'param2' => get_string('maxgrade', 'datafield_gradeentry'),
-            'param3' => get_string('decimals', 'datafield_gradeentry'),
-            'param4' => get_string('showaspercentage', 'datafield_gradeentry'),
+            'param1' =&gt; get_string('mingrade', 'datafield_gradeentry'),
+            'param2' =&gt; get_string('maxgrade', 'datafield_gradeentry'),
+            'param3' =&gt; get_string('decimals', 'datafield_gradeentry'),
+            'param4' =&gt; get_string('showaspercentage', 'datafield_gradeentry'),
         ];
     }
 }
