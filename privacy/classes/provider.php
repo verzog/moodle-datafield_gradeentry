@@ -86,6 +86,6 @@ class provider implements
         \stdClass $fieldobj,
         \stdClass $contentobj
     ): void {
-        // mod_data's privacy provider handles deletion of the data_content row.
+        // Deletion of data_content rows is handled by mod_data's privacy provider.
     }
 }

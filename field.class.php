@@ -252,8 +252,6 @@ class data_field_gradeentry extends data_field_base {
         static $i = 0;
         $i++;
         $name = "df_gradeentry_{$i}";
-        // data_content.content is a text column; keep the bound value as a string
-        // to avoid a type-mismatch error on PostgreSQL (text vs double precision).
         $value = (string) (float) $value;
         return [
             " ({$tablealias}.fieldid = {$this->field->id}"
