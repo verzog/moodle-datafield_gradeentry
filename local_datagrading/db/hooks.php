@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Plugin version metadata for local_datagrading.
+ * Hook callback registration for local_datagrading.
  *
  * @package    local_datagrading
  * @copyright  2025 onwards, Australian developers
@@ -24,6 +24,9 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->version   = 2025120802;
-$plugin->requires  = 2024100700;
-$plugin->component = 'local_datagrading';
+$callbacks = [
+    [
+        'hook'     => \core\hook\output\before_footer_html_generation::class,
+        'callback' => [\local_datagrading\hook_callbacks::class, 'before_footer_html_generation'],
+    ],
+];

@@ -15,77 +15,17 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Plugin library functions and output hooks for local_datagrading.
+ * Plugin library functions for local_datagrading.
+ *
+ * The page-footer markup that this plugin used to emit via the legacy
+ * local_datagrading_before_footer() callback is now produced by the
+ * \local_datagrading\hook_callbacks::before_footer_html_generation()
+ * hook callback (see db/hooks.php).
  *
  * @package    local_datagrading
  * @copyright  2025 onwards, Australian developers
  * @license    https://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
  */
-
-/**
- * Inject the grading progress bar and AMD module into Database activity pages for teachers.
- *
- * Called automatically by Moodle before </body> on every page load.
- *
- * @return string  HTML to append before the closing body tag.
- */
-function local_datagrading_before_footer(): string {
-    global $DB, $PAGE;
-
-    if (!$PAGE->cm || $PAGE->cm->modname !== 'data') {
-        return '';
-    }
-
-    $context = $PAGE->context;
-    if (!has_capability('local/datagrading:grade', $context)) {
-        return '';
-    }
-
-    $dataid = $PAGE->cm->instance;
-
-    $total = $DB->count_records('data_records', ['dataid' => $dataid]);
-    $graded = $DB->count_records_select(
-        'local_datagrading_grades',
-        'dataid = :dataid AND graderid IS NOT NULL',
-        ['dataid' => $dataid]
-    );
-
-    if ($total === 0) {
-        return '';
-    }
-
-    $PAGE->requires->js_call_amd('local_datagrading/inline_grader', 'init', [
-        $PAGE->cm->id,
-        $context->id,
-    ]);
-
-    $progresshtml = \html_writer::start_div(
-        'local-datagrading-progress alert alert-info d-flex align-items-center gap-3',
-        [
-            'id' => 'local-datagrading-progress',
-            'data-cmid' => $PAGE->cm->id,
-            'data-graded' => $graded,
-            'data-total' => $total,
-        ]
-    );
-    $progresshtml .= \html_writer::tag(
-        'span',
-        get_string('gradingprogress', 'local_datagrading', ['graded' => $graded, 'total' => $total]),
-        ['id' => 'local-datagrading-progress-text', 'class' => 'me-auto']
-    );
-    $progresshtml .= \html_writer::tag(
-        'button',
-        get_string('releaseall', 'local_datagrading'),
-        [
-            'id' => 'local-datagrading-release-all',
-            'class' => 'btn btn-sm btn-secondary',
-            'data-cmid' => $PAGE->cm->id,
-        ]
-    );
-    $progresshtml .= \html_writer::end_div();
-
-    return $progresshtml;
-}
 
 /**
  * Register or update the grade item for a database activity in the gradebook.
@@ -96,10 +36,10 @@ function local_datagrading_before_footer(): string {
  */
 function local_datagrading_grade_item_update(stdClass $data, $grades = null): int {
     $params = [
-        'itemname' => $data->name,
+        'itemname'  => $data->name,
         'gradetype' => GRADE_TYPE_VALUE,
-        'grademax' => (float) ($data->_maxgrade ?? 100),
-        'grademin' => 0,
+        'grademax'  => (float) ($data->_maxgrade ?? 100),
+        'grademin'  => 0,
     ];
 
     if ($grades === 'reset') {
