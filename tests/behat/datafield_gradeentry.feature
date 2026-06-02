@@ -1,4 +1,4 @@
-@datafield_gradeentry @mod_data
+@datafield @datafield_gradeentry @mod_data
 Feature: Grade entry field in database activity
   As a teacher
   I want to add a grade entry field to a Database activity

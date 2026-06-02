@@ -72,6 +72,13 @@ class behat_datafield_gradeentry extends behat_base {
 
     /**
      * Create a datafield_gradeentry field on the named Database activity.
+     *
+     * @param string $dataname    Name of the existing Database activity (mdl_data.name).
+     * @param string $fieldname   Name of the new field.
+     * @param string $min         param1 - minimum grade.
+     * @param string $max         param2 - maximum grade.
+     * @param int    $decimals    param3 - number of decimal places to display.
+     * @param int    $percentage  param4 - 1 to enable percentage display, 0 otherwise.
      */
     private function create_gradeentry_field(
         string $dataname,

@@ -39,6 +39,7 @@ class field_test extends \advanced_testcase {
     protected function setUp(): void {
         global $CFG;
         parent::setUp();
+        require_once($CFG->dirroot . '/mod/data/lib.php');
         require_once($CFG->dirroot . '/mod/data/field/gradeentry/field.class.php');
         $this->resetAfterTest();
 
@@ -59,13 +60,13 @@ class field_test extends \advanced_testcase {
     /**
      * Build a field instance, optionally overriding field record properties.
      *
-     * @param \stdClass|null $overrides  Key-value pairs to override.
+     * @param  array|null $overrides  Key-value pairs to override on the stub record.
      * @return \data_field_gradeentry
      */
-    private function make_field(\stdClass $overrides = null): \data_field_gradeentry {
+    private function make_field(?array $overrides = null): \data_field_gradeentry {
         $rec = clone $this->fieldrecord;
         if ($overrides) {
-            foreach ((array) $overrides as $k => $v) {
+            foreach ($overrides as $k => $v) {
                 $rec->$k = $v;
             }
         }
