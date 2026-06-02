@@ -30,11 +30,12 @@ namespace datafield_gradeentry\tests;
  * @covers \data_field_gradeentry
  */
 class field_test extends \advanced_testcase {
-    /** @var \stdClass Stub field record shared across tests. */
-    private \stdClass $fieldrecord;
+    /** @var \stdClass The Database activity used as the parent for each field. */
+    private \stdClass $dataactivity;
 
     /**
-     * Set up a minimal field record stub before each test.
+     * Create a real course + Database activity so data_field_base's
+     * constructor can resolve a valid data record.
      */
     protected function setUp(): void {
         global $CFG;
@@ -43,34 +44,29 @@ class field_test extends \advanced_testcase {
         require_once($CFG->dirroot . '/mod/data/field/gradeentry/field.class.php');
         $this->resetAfterTest();
 
-        $this->fieldrecord = (object) [
-            'id' => 1,
-            'dataid' => 1,
-            'type' => 'gradeentry',
-            'name' => 'Test grade',
-            'description' => '',
-            'required' => 0,
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $this->dataactivity = $generator->create_module('data', ['course' => $course->id]);
+    }
+
+    /**
+     * Build a gradeentry field on the test Database activity.
+     *
+     * @param  array|null $overrides  Param overrides applied to the field record.
+     * @return \data_field_gradeentry
+     */
+    private function make_field(?array $overrides = null): \data_field_gradeentry {
+        $datagen = $this->getDataGenerator()->get_plugin_generator('mod_data');
+        $params = array_merge([
+            'name'   => 'Test grade',
+            'type'   => 'gradeentry',
             'param1' => '0',
             'param2' => '100',
             'param3' => '2',
             'param4' => '',
-        ];
-    }
-
-    /**
-     * Build a field instance, optionally overriding field record properties.
-     *
-     * @param  array|null $overrides  Key-value pairs to override on the stub record.
-     * @return \data_field_gradeentry
-     */
-    private function make_field(?array $overrides = null): \data_field_gradeentry {
-        $rec = clone $this->fieldrecord;
-        if ($overrides) {
-            foreach ($overrides as $k => $v) {
-                $rec->$k = $v;
-            }
-        }
-        return new \data_field_gradeentry($rec);
+        ], $overrides ?? []);
+        $fieldrec = $datagen->create_field((object) $params, $this->dataactivity);
+        return new \data_field_gradeentry($fieldrec, $this->dataactivity);
     }
 
     /**
