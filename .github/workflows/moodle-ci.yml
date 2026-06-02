@@ -61,6 +61,7 @@ jobs:
         run: |
           moodle-plugin-ci install \
             --plugin ./plugin \
+            --extra-plugins ./plugin/local_datagrading \
             --db-host=127.0.0.1 \
             --branch ${{ matrix.moodle-branch }}
         env:
