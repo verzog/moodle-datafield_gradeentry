@@ -30,15 +30,14 @@ use Behat\Step\Given;
  * Custom Behat steps for the datafield_gradeentry plugin.
  */
 class behat_datafield_gradeentry extends behat_base {
-
     /**
      * Add a Grade entry field with the given min/max bounds to a Database activity.
      *
      * @param string $dataname   Name of the existing Database activity (mdl_data.name).
      * @param string $type       Field type label (ignored; provided for readability).
      * @param string $fieldname  Name of the new field.
-     * @param string $min        param1 — minimum grade.
-     * @param string $max        param2 — maximum grade.
+     * @param string $min        param1 - minimum grade.
+     * @param string $max        param2 - maximum grade.
      */
     #[Given('the database :dataname has a :type field named :fieldname with min :min and max :max')]
     public function the_database_has_a_field_with_min_and_max(
@@ -57,8 +56,8 @@ class behat_datafield_gradeentry extends behat_base {
      * @param string $dataname   Name of the existing Database activity.
      * @param string $type       Field type label (ignored).
      * @param string $fieldname  Name of the new field.
-     * @param string $min        param1 — minimum grade.
-     * @param string $max        param2 — maximum grade.
+     * @param string $min        param1 - minimum grade.
+     * @param string $max        param2 - maximum grade.
      */
     #[Given('the database :dataname has a :type field named :fieldname with min :min, max :max, and percentage display enabled')]
     public function the_database_has_a_field_with_percentage(

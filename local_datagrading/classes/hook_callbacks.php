@@ -24,7 +24,6 @@ namespace local_datagrading;
  * @license    https://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
  */
 class hook_callbacks {
-
     /**
      * Inject the grading progress bar and AMD module into Database activity pages for teachers.
      *

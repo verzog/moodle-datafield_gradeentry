@@ -22,8 +22,6 @@
  * @license    https://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * A Database activity field type that records numeric grade values.
  *
