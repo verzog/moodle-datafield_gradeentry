@@ -50,22 +50,37 @@ class field_test extends \advanced_testcase {
     }
 
     /**
-     * Build a gradeentry field on the test Database activity.
+     * Insert a fully-populated gradeentry field row directly via $DB.
+     *
+     * mod_data_generator::create_field() only copies record properties that
+     * already exist on the field stub it builds, which means our paramN
+     * values get silently dropped. Going straight to $DB->insert_record()
+     * guarantees that param1..param4 round-trip into the constructed field.
      *
      * @param  array|null $overrides  Param overrides applied to the field record.
      * @return \data_field_gradeentry
      */
     private function make_field(?array $overrides = null): \data_field_gradeentry {
-        $datagen = $this->getDataGenerator()->get_plugin_generator('mod_data');
+        global $DB;
         $params = array_merge([
-            'name'   => 'Test grade',
-            'type'   => 'gradeentry',
-            'param1' => '0',
-            'param2' => '100',
-            'param3' => '2',
-            'param4' => '',
+            'dataid'      => $this->dataactivity->id,
+            'type'        => 'gradeentry',
+            'name'        => 'Test grade',
+            'description' => '',
+            'required'    => 0,
+            'param1'      => '0',
+            'param2'      => '100',
+            'param3'      => '2',
+            'param4'      => '',
+            'param5'      => '',
+            'param6'      => '',
+            'param7'      => '',
+            'param8'      => '',
+            'param9'      => '',
+            'param10'     => '',
         ], $overrides ?? []);
-        $fieldrec = $datagen->create_field((object) $params, $this->dataactivity);
+        $id = $DB->insert_record('data_fields', (object) $params);
+        $fieldrec = $DB->get_record('data_fields', ['id' => $id], '*', MUST_EXIST);
         return new \data_field_gradeentry($fieldrec, $this->dataactivity);
     }
 
