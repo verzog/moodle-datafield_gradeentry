@@ -239,6 +239,11 @@ class data_field_gradeentry extends data_field_base {
     /**
      * Build a SQL WHERE fragment for searching this field.
      *
+     * data_content.content is a TEXT column, so on PostgreSQL the comparison
+     * must be text-to-text. Wrapping both the column and the placeholder in
+     * sql_compare_text() (matching core's datafield_number) keeps the
+     * comparison portable across MySQL/MariaDB and PostgreSQL.
+     *
      * @param string $tablealias  Alias for the data_content table.
      * @param mixed  $value       The search value.
      * @return array  [sql, params].
@@ -251,7 +256,8 @@ class data_field_gradeentry extends data_field_base {
         $value = (string) (float) $value;
         return [
             " ({$tablealias}.fieldid = {$this->field->id}"
-                . " AND " . $DB->sql_compare_text("{$tablealias}.content") . " = :{$name}) ",
+                . " AND " . $DB->sql_compare_text("{$tablealias}.content")
+                . " = " . $DB->sql_compare_text(":{$name}") . ") ",
             [$name => $value],
         ];
     }
