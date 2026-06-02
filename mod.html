@@ -1,0 +1,35 @@
+{{!
+    Template for the grade entry field definition form.
+
+    @package    datafield_gradeentry
+    @copyright  2025 onwards, Australian developers
+    @license    https://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
+}}
+<div class="mb-3">
+    <label for="param1">{{#str}}mingrade, datafield_gradeentry{{/str}}</label>
+    <input type="number" step="any" class="form-control" id="param1" name="param1"
+        value="{{field.param1}}" />
+    <small class="form-text text-muted">{{#str}}mingrade_help, datafield_gradeentry{{/str}}</small>
+</div>
+<div class="mb-3">
+    <label for="param2">{{#str}}maxgrade, datafield_gradeentry{{/str}}</label>
+    <input type="number" step="any" class="form-control" id="param2" name="param2"
+        value="{{field.param2}}" />
+    <small class="form-text text-muted">{{#str}}maxgrade_help, datafield_gradeentry{{/str}}</small>
+</div>
+<div class="mb-3">
+    <label for="param3">{{#str}}decimals, datafield_gradeentry{{/str}}</label>
+    <input type="number" min="0" max="10" class="form-control" id="param3" name="param3"
+        value="{{field.param3}}" />
+    <small class="form-text text-muted">{{#str}}decimals_help, datafield_gradeentry{{/str}}</small>
+</div>
+<div class="mb-3 form-check">
+    <input type="checkbox" class="form-check-input" id="param4" name="param4" value="1"
+        {{#field.param4}}checked{{/field.param4}} />
+    <label class="form-check-label" for="param4">
+        {{#str}}showaspercentage, datafield_gradeentry{{/str}}
+    </label>
+    <small class="form-text text-muted d-block">
+        {{#str}}showaspercentage_help, datafield_gradeentry{{/str}}
+    </small>
+</div>
