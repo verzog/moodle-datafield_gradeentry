@@ -11,7 +11,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:14
+        image: postgres:16
         env:
           POSTGRES_USER: postgres
           POSTGRES_HOST_AUTH_METHOD: trust
@@ -36,6 +36,9 @@ jobs:
         php: ['8.2', '8.3', '8.4']
         moodle-branch: ['MOODLE_500_STABLE', 'MOODLE_501_STABLE', 'MOODLE_502_STABLE']
         database: [pgsql, mariadb]
+        exclude:
+          - php: '8.2'
+            moodle-branch: 'MOODLE_502_STABLE'
 
     steps:
       - name: Check out repository code
@@ -48,6 +51,7 @@ jobs:
         with:
           php-version: ${{ matrix.php }}
           extensions: ${{ matrix.database == 'pgsql' && 'pgsql, pdo_pgsql' || 'mysqli, pdo_mysql' }}, curl, zip, gd, intl, xml, xmlrpc, soap
+          ini-values: max_input_vars=5000
           coverage: none
 
       - name: Initialise moodle-plugin-ci
