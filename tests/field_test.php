@@ -24,9 +24,6 @@
 
 namespace datafield_gradeentry\tests;
 
-global $CFG;
-require_once($CFG->dirroot . '/mod/data/field/gradeentry/field.class.php');
-
 /**
  * Unit tests for the grade entry field validation logic.
  *
@@ -40,7 +37,9 @@ class field_test extends \advanced_testcase {
      * Set up a minimal field record stub before each test.
      */
     protected function setUp(): void {
+        global $CFG;
         parent::setUp();
+        require_once($CFG->dirroot . '/mod/data/field/gradeentry/field.class.php');
         $this->resetAfterTest();
 
         $this->fieldrecord = (object) [

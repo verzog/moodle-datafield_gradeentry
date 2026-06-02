@@ -1,35 +1,63 @@
-{{!
-    Template for the grade entry field definition form.
+<?php
+// This file is part of Moodle - https://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
-    @package    datafield_gradeentry
-    @copyright  2025 onwards, Australian developers
-    @license    https://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
-}}
+/**
+ * Field definition form fragment for the gradeentry datafield.
+ *
+ * Included by data_field_base::display_edit_field() inside the field-edit
+ * form. $this refers to the data_field_gradeentry instance; field params
+ * are read from $this->field->param1 … param4.
+ *
+ * @package    datafield_gradeentry
+ * @copyright  2025 onwards, Australian developers
+ * @license    https://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
+ */
+defined('MOODLE_INTERNAL') || die();
+?>
 <div class="mb-3">
-    <label for="param1">{{#str}}mingrade, datafield_gradeentry{{/str}}</label>
+    <label for="param1"><?php echo get_string('mingrade', 'datafield_gradeentry'); ?></label>
     <input type="number" step="any" class="form-control" id="param1" name="param1"
-        value="{{field.param1}}" />
-    <small class="form-text text-muted">{{#str}}mingrade_help, datafield_gradeentry{{/str}}</small>
+        value="<?php p($this->field->param1 ?? ''); ?>" />
+    <small class="form-text text-muted">
+        <?php echo get_string('mingrade_help', 'datafield_gradeentry'); ?>
+    </small>
 </div>
 <div class="mb-3">
-    <label for="param2">{{#str}}maxgrade, datafield_gradeentry{{/str}}</label>
+    <label for="param2"><?php echo get_string('maxgrade', 'datafield_gradeentry'); ?></label>
     <input type="number" step="any" class="form-control" id="param2" name="param2"
-        value="{{field.param2}}" />
-    <small class="form-text text-muted">{{#str}}maxgrade_help, datafield_gradeentry{{/str}}</small>
+        value="<?php p($this->field->param2 ?? ''); ?>" />
+    <small class="form-text text-muted">
+        <?php echo get_string('maxgrade_help', 'datafield_gradeentry'); ?>
+    </small>
 </div>
 <div class="mb-3">
-    <label for="param3">{{#str}}decimals, datafield_gradeentry{{/str}}</label>
+    <label for="param3"><?php echo get_string('decimals', 'datafield_gradeentry'); ?></label>
     <input type="number" min="0" max="10" class="form-control" id="param3" name="param3"
-        value="{{field.param3}}" />
-    <small class="form-text text-muted">{{#str}}decimals_help, datafield_gradeentry{{/str}}</small>
+        value="<?php p($this->field->param3 ?? '2'); ?>" />
+    <small class="form-text text-muted">
+        <?php echo get_string('decimals_help', 'datafield_gradeentry'); ?>
+    </small>
 </div>
 <div class="mb-3 form-check">
     <input type="checkbox" class="form-check-input" id="param4" name="param4" value="1"
-        {{#field.param4}}checked{{/field.param4}} />
+        <?php if (!empty($this->field->param4)) { echo 'checked'; } ?> />
     <label class="form-check-label" for="param4">
-        {{#str}}showaspercentage, datafield_gradeentry{{/str}}
+        <?php echo get_string('showaspercentage', 'datafield_gradeentry'); ?>
     </label>
     <small class="form-text text-muted d-block">
-        {{#str}}showaspercentage_help, datafield_gradeentry{{/str}}
+        <?php echo get_string('showaspercentage_help', 'datafield_gradeentry'); ?>
     </small>
 </div>

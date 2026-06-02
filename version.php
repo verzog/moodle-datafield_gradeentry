@@ -25,5 +25,3 @@
 $plugin->version   = 2025120801;
 $plugin->requires  = 2024100700;
 $plugin->component = 'datafield_gradeentry';
-$plugin->maturity  = MATURITY_STABLE;
-$plugin->release   = '1.0.1';

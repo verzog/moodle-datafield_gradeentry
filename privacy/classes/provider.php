@@ -44,29 +44,48 @@ class provider implements
     }
 
     /**
-     * Export user data for a database entry that uses this field.
+     * Export the content stored by this field for a single data record.
      *
-     * Grade values are plain numeric content stored in mod_data's data_content
-     * table. The mod_data privacy provider handles export; nothing extra here.
+     * The grade value is a plain number stored in data_content.content.
+     * We return it as-is; mod_data's provider handles the surrounding context.
      *
-     * @param \mod_data\privacy\data_fields_exporter $exporter  Exporter instance.
+     * @param \context  $context      Module context.
+     * @param \stdClass $recordobj    The data_records row.
+     * @param \stdClass $fieldobj     The data_fields row.
+     * @param \stdClass $contentobj   The data_content row.
+     * @param mixed     $defaultvalue Unused fallback value.
+     * @return string|null  The stored grade as a string, or null if empty.
      */
-    public static function export_data_content_for_user(\mod_data\privacy\data_fields_exporter $exporter): void {
-        // No additional data beyond what mod_data already exports.
+    public static function export_data_content(
+        \context $context,
+        \stdClass $recordobj,
+        \stdClass $fieldobj,
+        \stdClass $contentobj,
+        $defaultvalue
+    ): ?string {
+        if ($contentobj->content === null || $contentobj->content === '') {
+            return null;
+        }
+        return (string) $contentobj->content;
     }
 
     /**
-     * Delete user data for a database entry that uses this field.
+     * Delete the content stored by this field for a single data record.
      *
-     * @param \context $context    The context to delete data for.
-     * @param array    $fieldids   Field IDs to delete.
-     * @param array    $contentids Content IDs to delete.
+     * Deletion of the data_content row is handled by mod_data's privacy
+     * provider; no additional data needs to be removed here.
+     *
+     * @param \context  $context    Module context.
+     * @param \stdClass $recordobj  The data_records row.
+     * @param \stdClass $fieldobj   The data_fields row.
+     * @param \stdClass $contentobj The data_content row.
      */
-    public static function delete_data_content_for_user(
+    public static function delete_data_content(
         \context $context,
-        array $fieldids,
-        array $contentids
+        \stdClass $recordobj,
+        \stdClass $fieldobj,
+        \stdClass $contentobj
     ): void {
-        // Deletion of data_content rows is handled by mod_data's privacy provider.
+        // mod_data's privacy provider handles deletion of the data_content row.
     }
 }
