@@ -107,13 +107,18 @@ const wireReleaseControls = (cmid) => {
     document.querySelectorAll('[data-gradeentry-release]').forEach(checkbox => {
         checkbox.addEventListener('change', () => {
             const recordid = parseInt(checkbox.dataset.recordid, 10);
+            const desired = checkbox.checked;
             Ajax.call([{
                 methodname: 'datafield_gradeentry_release_grades',
-                args: {cmid, recordids: [recordid]},
+                args: {cmid, recordids: [recordid], released: desired},
                 done: () => {
-                    updateReleasedLabel(checkbox, checkbox.checked);
+                    updateReleasedLabel(checkbox, desired);
                 },
-                fail: Notification.exception,
+                fail: (ex) => {
+                    // Roll the checkbox back so the UI matches server state.
+                    checkbox.checked = !desired;
+                    Notification.exception(ex);
+                },
             }]);
         });
     });
@@ -131,7 +136,7 @@ const wireReleaseAllButton = (cmid) => {
         btn.disabled = true;
         Ajax.call([{
             methodname: 'datafield_gradeentry_release_grades',
-            args: {cmid, recordids: []},
+            args: {cmid, recordids: [], released: true},
             done: (result) => {
                 btn.disabled = false;
                 document.querySelectorAll('[data-gradeentry-release]').forEach(cb => {

@@ -22,8 +22,12 @@
  * @license    https://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
-
+/**
+ * Run the datafield_gradeentry upgrade steps.
+ *
+ * @param  int $oldversion  The version we are upgrading from.
+ * @return bool
+ */
 function xmldb_datafield_gradeentry_upgrade($oldversion) {
     global $DB;
     $dbman = $DB->get_manager();
@@ -56,8 +60,12 @@ function xmldb_datafield_gradeentry_upgrade($oldversion) {
 
         // 3. Re-point existing gradebook items so they survive the rename of
         // the grade source string (was 'local/datagrading').
-        $DB->set_field('grade_items', 'source', 'mod/data/field/gradeentry',
-            ['source' => 'local/datagrading']);
+        $DB->set_field(
+            'grade_items',
+            'source',
+            'mod/data/field/gradeentry',
+            ['source' => 'local/datagrading']
+        );
 
         // 4. Migrate role overrides on the old capabilities to the new ones
         // so existing teacher-grader assignments are preserved across the

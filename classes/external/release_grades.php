@@ -44,27 +44,36 @@ class release_grades extends external_api {
             'cmid' => new external_value(PARAM_INT, 'Course-module ID of the database activity'),
             'recordids' => new external_multiple_structure(
                 new external_value(PARAM_INT, 'Record ID'),
-                'Specific record IDs to release; omit or pass empty array to release all graded entries.',
+                'Specific record IDs to operate on; omit or pass empty array to operate on all graded entries.',
                 VALUE_DEFAULT,
                 []
+            ),
+            'released' => new external_value(
+                PARAM_BOOL,
+                'Target state: true to release the grade to the student, false to unrelease.',
+                VALUE_DEFAULT,
+                true
             ),
         ]);
     }
 
     /**
-     * Release grades for the specified entries, or all entries if none specified.
+     * Set the released state for the specified entries (or all graded entries).
      *
      * @param int   $cmid       Course-module ID.
-     * @param int[] $recordids  Specific record IDs, or empty to release all.
-     * @return array{released: int}
+     * @param int[] $recordids  Specific record IDs, or empty to operate on all graded entries.
+     * @param bool  $released   Target state - true to release, false to unrelease.
+     * @return array{released: int}  Count of rows in the requested state after the call.
      */
-    public static function execute(int $cmid, array $recordids = []): array {
+    public static function execute(int $cmid, array $recordids = [], bool $released = true): array {
         [
             'cmid' => $cmid,
             'recordids' => $recordids,
+            'released' => $released,
         ] = self::validate_parameters(self::execute_parameters(), [
             'cmid' => $cmid,
             'recordids' => $recordids,
+            'released' => $released,
         ]);
 
         $cm = get_coursemodule_from_id('data', $cmid, 0, false, MUST_EXIST);
@@ -72,12 +81,13 @@ class release_grades extends external_api {
         self::validate_context($context);
         require_capability('datafield/gradeentry:grade', $context);
 
-        $released = \datafield_gradeentry\grade_manager::release(
+        $count = \datafield_gradeentry\grade_manager::release(
             $cm->instance,
-            count($recordids) > 0 ? array_map('intval', $recordids) : null
+            count($recordids) > 0 ? array_map('intval', $recordids) : null,
+            (bool) $released
         );
 
-        return ['released' => $released];
+        return ['released' => $count];
     }
 
     /**

@@ -75,16 +75,19 @@ class grade_manager {
     }
 
     /**
-     * Mark one or more entries as released (grade visible to student).
+     * Set the released state of one or more entries.
      *
      * @param int        $dataid     Database activity ID.
-     * @param int[]|null $recordids  Specific record IDs, or null to release all graded entries.
-     * @return int  Number of rows updated.
+     * @param int[]|null $recordids  Specific record IDs, or null to operate on all graded entries.
+     * @param bool       $released   Target state - true to release to the student, false to unrelease.
+     * @return int  Number of rows matching $released after the operation
+     *              (the count the caller can show as "n released" / "n unreleased").
      */
-    public static function release(int $dataid, ?array $recordids = null): int {
+    public static function release(int $dataid, ?array $recordids = null, bool $released = true): int {
         global $DB;
 
         $now = time();
+        $flag = $released ? 1 : 0;
 
         if ($recordids !== null) {
             $count = 0;
@@ -92,7 +95,7 @@ class grade_manager {
                 $count += (int) $DB->set_field(
                     'datafield_gradeentry_grades',
                     'released',
-                    1,
+                    $flag,
                     ['dataid' => $dataid, 'recordid' => (int) $rid]
                 );
             }
@@ -101,12 +104,12 @@ class grade_manager {
 
         $DB->execute(
             'UPDATE {datafield_gradeentry_grades}
-                SET released = 1, timemodified = :now
+                SET released = :flag, timemodified = :now
               WHERE dataid = :dataid AND graderid IS NOT NULL',
-            ['now' => $now, 'dataid' => $dataid]
+            ['flag' => $flag, 'now' => $now, 'dataid' => $dataid]
         );
 
-        return $DB->count_records('datafield_gradeentry_grades', ['dataid' => $dataid, 'released' => 1]);
+        return $DB->count_records('datafield_gradeentry_grades', ['dataid' => $dataid, 'released' => $flag]);
     }
 
     /**

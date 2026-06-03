@@ -45,6 +45,15 @@ class hook_callbacks {
 
         $dataid = $PAGE->cm->instance;
 
+        // Only render the grading UI when this Database activity actually has
+        // a Grade entry field. Without this guard the progress bar and
+        // release-all button would appear on every Database activity, where
+        // they have no work to do and the release action would target an
+        // empty grade metadata set.
+        if (!$DB->record_exists('data_fields', ['dataid' => $dataid, 'type' => 'gradeentry'])) {
+            return;
+        }
+
         $total = $DB->count_records('data_records', ['dataid' => $dataid]);
         if ($total === 0) {
             return;
