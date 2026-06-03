@@ -27,7 +27,8 @@
  *
  * Teachers grade entries via an inline panel in the browse view; students
  * see their released grade and feedback. Grades sync to the Moodle gradebook
- * via the companion local_datagrading plugin.
+ * via the companion local_datagrading plugin, which pushes a grade_item the
+ * first time a teacher saves a grade.
  */
 class data_field_gradeentry extends data_field_base {
     /** @var string Field type identifier. */
@@ -356,25 +357,5 @@ class data_field_gradeentry extends data_field_base {
             'param3' => get_string('decimals', 'datafield_gradeentry'),
             'param4' => get_string('showaspercentage', 'datafield_gradeentry'),
         ];
-    }
-
-    /**
-     * Persist the new field record and create a matching gradebook grade_item
-     * so a column appears in the gradebook immediately after the field is added,
-     * even before any entries are graded.
-     *
-     * @return bool
-     */
-    public function insert_field() {
-        $result = parent::insert_field();
-
-        if ($result && function_exists('local_datagrading_grade_item_update')) {
-            global $DB;
-            $data = $DB->get_record('data', ['id' => $this->field->dataid], 'id, name, course', MUST_EXIST);
-            $data->_maxgrade = (float) ($this->field->param2 !== '' ? $this->field->param2 : 100);
-            local_datagrading_grade_item_update($data);
-        }
-
-        return $result;
     }
 }
