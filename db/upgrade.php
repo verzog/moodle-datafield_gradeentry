@@ -45,29 +45,32 @@ function xmldb_datafield_gradeentry_upgrade($oldversion) {
         }
 
         // 2. Migrate rows from the old local_datagrading_grades table if
-        // it's still installed alongside us.
+        // it's still installed alongside us. Idempotent: skips any row
+        // whose (dataid, recordid) is already present in the new table.
+        // This matters because the previous 2025120810 upgrade aborted
+        // after this INSERT but before the savepoint, leaving rows
+        // copied but $oldversion still below 2025120810, so the same
+        // step runs again on the retry.
         $oldtable = new xmldb_table('local_datagrading_grades');
         if ($dbman->table_exists($oldtable)) {
             $DB->execute(
                 'INSERT INTO {datafield_gradeentry_grades}
                     (dataid, recordid, userid, graderid, feedback, feedbackformat,
                      released, timecreated, timemodified)
-                 SELECT dataid, recordid, userid, graderid, feedback, feedbackformat,
-                        released, timecreated, timemodified
-                   FROM {local_datagrading_grades}'
+                 SELECT old.dataid, old.recordid, old.userid, old.graderid,
+                        old.feedback, old.feedbackformat,
+                        old.released, old.timecreated, old.timemodified
+                   FROM {local_datagrading_grades} old
+                  WHERE NOT EXISTS (
+                      SELECT 1
+                        FROM {datafield_gradeentry_grades} new
+                       WHERE new.dataid = old.dataid
+                         AND new.recordid = old.recordid
+                  )'
             );
         }
 
-        // 3. Re-point existing gradebook items so they survive the rename of
-        // the grade source string (was 'local/datagrading').
-        $DB->set_field(
-            'grade_items',
-            'source',
-            'mod/data/field/gradeentry',
-            ['source' => 'local/datagrading']
-        );
-
-        // 4. Migrate role overrides on the old capabilities to the new ones
+        // 3. Migrate role overrides on the old capabilities to the new ones
         // so existing teacher-grader assignments are preserved across the
         // rename. Uses REPLACE() rather than a join because the role_capabilities
         // table only holds the string capability name.
@@ -78,6 +81,13 @@ function xmldb_datafield_gradeentry_upgrade($oldversion) {
               WHERE capability IN
                   ('local/datagrading:grade','local/datagrading:viewgrades')"
         );
+
+        // Note: existing gradebook items don't need migrating. They were
+        // created by grade_update() with itemtype='mod', itemmodule='data',
+        // iteminstance=$data->id - the parent Database activity - and we
+        // still call grade_update() with the same triple. The first arg to
+        // grade_update() (was 'local/datagrading', now 'mod/data/field/gradeentry')
+        // is a log marker only and isn't persisted on grade_items.
 
         upgrade_plugin_savepoint(true, 2025120810, 'datafield', 'gradeentry');
     }
