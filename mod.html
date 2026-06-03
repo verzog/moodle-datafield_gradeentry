@@ -18,8 +18,14 @@
  * Field definition form fragment for the gradeentry datafield.
  *
  * Included by data_field_base::display_edit_field() inside the field-edit
- * form. $this refers to the data_field_gradeentry instance; field params
- * are read from $this->field->param1 … param4.
+ * form. $this refers to the data_field_gradeentry instance.
+ *
+ * mod_data's field-create/edit controller wraps this fragment in a <form>
+ * tag and adds the sesskey, but it does NOT inject the field name,
+ * description or required inputs - each field type's mod.html is
+ * responsible for emitting them. Without name/description here, mod_data
+ * receives an empty $fd->name on submit and the controller redirects back
+ * with "Please choose another name for this field".
  *
  * @package    datafield_gradeentry
  * @copyright  2025 onwards, Australian developers
@@ -28,7 +34,24 @@
 defined('MOODLE_INTERNAL') || die();
 ?>
 <div class="mb-3">
-    <label for="param1"><?php echo get_string('mingrade', 'datafield_gradeentry'); ?></label>
+    <label for="name" class="form-label"><?php echo get_string('fieldname', 'data'); ?></label>
+    <input type="text" class="form-control" id="name" name="name"
+        value="<?php p($this->field->name ?? ''); ?>" required />
+</div>
+<div class="mb-3">
+    <label for="description" class="form-label"><?php echo get_string('fielddescription', 'data'); ?></label>
+    <input type="text" class="form-control" id="description" name="description"
+        value="<?php p($this->field->description ?? ''); ?>" />
+</div>
+<div class="mb-3 form-check">
+    <input type="checkbox" class="form-check-input" id="required" name="required" value="1"
+        <?php if (!empty($this->field->required)) { echo 'checked'; } ?> />
+    <label class="form-check-label" for="required">
+        <?php echo get_string('required'); ?>
+    </label>
+</div>
+<div class="mb-3">
+    <label for="param1" class="form-label"><?php echo get_string('mingrade', 'datafield_gradeentry'); ?></label>
     <input type="number" step="any" class="form-control" id="param1" name="param1"
         value="<?php p($this->field->param1 ?? ''); ?>" />
     <small class="form-text text-muted">
@@ -36,7 +59,7 @@ defined('MOODLE_INTERNAL') || die();
     </small>
 </div>
 <div class="mb-3">
-    <label for="param2"><?php echo get_string('maxgrade', 'datafield_gradeentry'); ?></label>
+    <label for="param2" class="form-label"><?php echo get_string('maxgrade', 'datafield_gradeentry'); ?></label>
     <input type="number" step="any" class="form-control" id="param2" name="param2"
         value="<?php p($this->field->param2 ?? ''); ?>" />
     <small class="form-text text-muted">
@@ -44,7 +67,7 @@ defined('MOODLE_INTERNAL') || die();
     </small>
 </div>
 <div class="mb-3">
-    <label for="param3"><?php echo get_string('decimals', 'datafield_gradeentry'); ?></label>
+    <label for="param3" class="form-label"><?php echo get_string('decimals', 'datafield_gradeentry'); ?></label>
     <input type="number" min="0" max="10" class="form-control" id="param3" name="param3"
         value="<?php p($this->field->param3 ?? '2'); ?>" />
     <small class="form-text text-muted">
