@@ -264,27 +264,21 @@ class data_field_gradeentry extends data_field_base {
     }
 
     /**
-     * Validate a submitted grade value against the field's configured bounds.
+     * Form-submit validation hook.
      *
-     * @param mixed $value  The submitted value.
-     * @return true|string  True on success, an error string on failure.
+     * Always returns true: the add-entry form never accepts a teacher-set
+     * value (display_add_field() emits only a hidden empty input), and
+     * teacher grading happens via the inline AJAX panel - which has its
+     * own bounds checking - not through the standard entry-form submit.
+     * Returning anything else here would surface as a spurious
+     * "You must enter a numeric value" error on every student submission,
+     * because mod_data's validation pass can hand us a non-empty fallback
+     * value (e.g. the field name) when the hidden input is processed.
+     *
+     * @param mixed $value  The submitted value (ignored).
+     * @return true
      */
     public function field_validation($value) {
-        if ($value === '' || $value === null) {
-            return true;
-        }
-        if (!is_numeric($value)) {
-            return get_string('errornumeric', 'datafield_gradeentry');
-        }
-        $num = (float) $value;
-        $min = (string) ($this->field->param1 ?? '');
-        $max = (string) ($this->field->param2 ?? '');
-        if ($min !== '' && $num < (float) $min) {
-            return get_string('erroroutofrange', 'datafield_gradeentry', ['min' => $min, 'max' => $max]);
-        }
-        if ($max !== '' && $num > (float) $max) {
-            return get_string('erroroutofrange', 'datafield_gradeentry', ['min' => $min, 'max' => $max]);
-        }
         return true;
     }
 
@@ -300,25 +294,30 @@ class data_field_gradeentry extends data_field_base {
         global $DB;
 
         // Students submit an empty value via the hidden input in display_add_field();
-        // leave any teacher-saved grade in place rather than wiping it.
-        if ($value === '' || $value === null) {
+        // leave any teacher-saved grade in place rather than wiping it. Non-numeric
+        // values cannot come from the teacher AJAX path either, so silently ignore.
+        if ($value === '' || $value === null || !is_numeric($value)) {
             return true;
         }
 
-        $msg = $this->field_validation($value);
-        if ($msg !== true) {
-            throw new moodle_exception('erroroutofrange', 'datafield_gradeentry');
+        $num = (float) $value;
+        $min = (string) ($this->field->param1 ?? '');
+        $max = (string) ($this->field->param2 ?? '');
+        if (($min !== '' && $num < (float) $min) || ($max !== '' && $num > (float) $max)) {
+            // Out-of-range values from non-UI callers (CSV import, etc.) are ignored
+            // rather than blowing up the surrounding entry-save transaction.
+            return true;
         }
 
         $content = $DB->get_record('data_content', ['fieldid' => $this->field->id, 'recordid' => $recordid]);
         if ($content) {
-            $content->content = (float) $value;
+            $content->content = $num;
             $DB->update_record('data_content', $content);
         } else {
             $DB->insert_record('data_content', (object) [
                 'fieldid' => $this->field->id,
                 'recordid' => $recordid,
-                'content' => (float) $value,
+                'content' => $num,
             ]);
         }
         return true;
@@ -327,12 +326,15 @@ class data_field_gradeentry extends data_field_base {
     /**
      * Return true when the field contains a non-empty value.
      *
-     * @param mixed  $value  Field value.
+     * Always returns false: this field is never student-supplied, so the
+     * 'required field' check must not block student submissions.
+     *
+     * @param mixed  $value  Field value (ignored).
      * @param string $name   Field name (unused).
      * @return bool
      */
     public function notemptyfield($value, $name) {
-        return ($value !== '' && $value !== null);
+        return false;
     }
 
     /**
