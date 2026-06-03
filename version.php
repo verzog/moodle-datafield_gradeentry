@@ -24,6 +24,14 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->version   = 2025120807;
-$plugin->requires  = 2024100700;
-$plugin->component = 'datafield_gradeentry';
+$plugin->version    = 2025120808;
+$plugin->requires   = 2024100700;
+$plugin->component  = 'datafield_gradeentry';
+$plugin->dependencies = [
+    // Supplies the local/datagrading:grade capability, the teacher-panel
+    // language strings (gradepending, gradedreleased, ...), the AJAX
+    // save endpoint, and the gradebook push. Without it the teacher
+    // panel cannot render or save grades, and the student view shows
+    // [[gradepending]] placeholders.
+    'local_datagrading' => 2025120802,
+];
