@@ -72,14 +72,19 @@ function xmldb_datafield_gradeentry_upgrade($oldversion) {
 
         // 3. Migrate role overrides on the old capabilities to the new ones
         // so existing teacher-grader assignments are preserved across the
-        // rename. Uses REPLACE() rather than a join because the role_capabilities
-        // table only holds the string capability name.
+        // rename. Bind the capability strings as parameters so the colons
+        // in 'local/datagrading:grade' etc. aren't parsed as :named
+        // placeholders by fix_sql_params().
         $DB->execute(
             "UPDATE {role_capabilities}
-                SET capability = REPLACE(capability,
-                    'local/datagrading:', 'datafield/gradeentry:')
-              WHERE capability IN
-                  ('local/datagrading:grade','local/datagrading:viewgrades')"
+                SET capability = REPLACE(capability, ?, ?)
+              WHERE capability IN (?, ?)",
+            [
+                'local/datagrading:',
+                'datafield/gradeentry:',
+                'local/datagrading:grade',
+                'local/datagrading:viewgrades',
+            ]
         );
 
         // Note: existing gradebook items don't need migrating. They were
