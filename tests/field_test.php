@@ -25,7 +25,18 @@
 namespace datafield_gradeentry\tests;
 
 /**
- * Unit tests for the grade entry field validation logic.
+ * Unit tests for the grade entry field's form-submit hooks.
+ *
+ * The form-submit hooks on this field type are intentionally permissive:
+ * students cannot supply a value (display_add_field() emits only a hidden
+ * empty input) and teachers grade via the inline AJAX panel - which has
+ * its own bounds checking - not through the standard entry-form submit.
+ *
+ * mod_data's data_process_submission() treats any truthy return from
+ * field_validation() as an error message and blocks the entry save, and
+ * notemptyfield() is the input to the required-field check. Both must
+ * therefore return false unconditionally so a Grade entry field cannot
+ * block a student submission.
  *
  * @covers \data_field_gradeentry
  */
@@ -85,72 +96,45 @@ class field_test extends \advanced_testcase {
     }
 
     /**
-     * A valid integer grade passes validation.
+     * field_validation() must always return a falsy value so it never blocks
+     * a student entry save, regardless of what mod_data hands in for this
+     * field's submitted value.
+     *
+     * @return array<string, array{0: mixed}>
      */
-    public function test_valid_integer(): void {
-        $field = $this->make_field();
-        $this->assertTrue($field->field_validation('75') === true);
+    public static function permissive_validation_provider(): array {
+        return [
+            'empty string'        => [''],
+            'null'                => [null],
+            'integer in range'    => ['75'],
+            'decimal in range'    => ['99.5'],
+            'min boundary'        => ['0'],
+            'max boundary'        => ['100'],
+            'below minimum'       => ['-1'],
+            'above maximum'       => ['101'],
+            'non-numeric string'  => ['abc'],
+            'field-name fallback' => ['Test grade'],
+        ];
     }
 
     /**
-     * A valid decimal grade passes validation.
+     * field_validation() returns false for every input mod_data could hand it.
+     *
+     * @dataProvider permissive_validation_provider
+     * @param mixed $value Submitted value (ignored by the hook).
      */
-    public function test_valid_decimal(): void {
-        $field = $this->make_field();
-        $this->assertTrue($field->field_validation('99.5') === true);
-    }
-
-    /**
-     * An empty value is treated as valid (field is optional).
-     */
-    public function test_empty_value_is_valid(): void {
-        $field = $this->make_field();
-        $this->assertTrue($field->field_validation('') === true);
-    }
-
-    /**
-     * A non-numeric string returns an error message.
-     */
-    public function test_non_numeric_returns_error(): void {
-        $field = $this->make_field();
-        $result = $field->field_validation('abc');
-        $this->assertIsString($result);
-        $this->assertStringContainsString('numeric', $result);
-    }
-
-    /**
-     * A value below the configured minimum returns an error.
-     */
-    public function test_below_minimum_returns_error(): void {
+    public function test_field_validation_always_passes($value): void {
         $field = $this->make_field(['param1' => '0', 'param2' => '100']);
-        $result = $field->field_validation('-1');
-        $this->assertIsString($result);
+        $this->assertFalse($field->field_validation($value));
     }
 
     /**
-     * A value above the configured maximum returns an error.
+     * notemptyfield() always returns false so the required-field check can
+     * never reject a student submission for this field type.
      */
-    public function test_above_maximum_returns_error(): void {
-        $field = $this->make_field(['param1' => '0', 'param2' => '100']);
-        $result = $field->field_validation('101');
-        $this->assertIsString($result);
-    }
-
-    /**
-     * Values exactly at the boundary (min and max) pass validation.
-     */
-    public function test_at_boundary_values(): void {
-        $field = $this->make_field(['param1' => '0', 'param2' => '100']);
-        $this->assertTrue($field->field_validation('0') === true);
-        $this->assertTrue($field->field_validation('100') === true);
-    }
-
-    /**
-     * Non-empty values return true from notemptyfield; empty values return false.
-     */
-    public function test_notemptyfield(): void {
+    public function test_notemptyfield_always_returns_false(): void {
         $field = $this->make_field();
-        $this->assertTrue($field->notemptyfield('50', ''));
+        $this->assertFalse($field->notemptyfield('50', ''));
         $this->assertFalse($field->notemptyfield('', ''));
         $this->assertFalse($field->notemptyfield(null, ''));
     }
