@@ -266,20 +266,24 @@ class data_field_gradeentry extends data_field_base {
     /**
      * Form-submit validation hook.
      *
-     * Always returns true: the add-entry form never accepts a teacher-set
-     * value (display_add_field() emits only a hidden empty input), and
-     * teacher grading happens via the inline AJAX panel - which has its
-     * own bounds checking - not through the standard entry-form submit.
-     * Returning anything else here would surface as a spurious
-     * "You must enter a numeric value" error on every student submission,
-     * because mod_data's validation pass can hand us a non-empty fallback
-     * value (e.g. the field name) when the hidden input is processed.
+     * mod_data's data_process_submission() treats ANY truthy return from
+     * field_validation() as an error message and surfaces it as a
+     * notification, blocking the entry save. The base class returns
+     * false to signal 'no error' - so this method must return a falsy
+     * value, not true.
+     *
+     * Returns false unconditionally: the add-entry form never accepts a
+     * teacher-set value (display_add_field() emits only a hidden empty
+     * input), and teacher grading happens via the inline AJAX panel -
+     * which has its own bounds checking - not through the standard
+     * entry-form submit. There is nothing for this hook to legitimately
+     * reject.
      *
      * @param mixed $value  The submitted value (ignored).
-     * @return true
+     * @return false
      */
     public function field_validation($value) {
-        return true;
+        return false;
     }
 
     /**
