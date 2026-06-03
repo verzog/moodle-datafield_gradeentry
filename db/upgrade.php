@@ -45,16 +45,28 @@ function xmldb_datafield_gradeentry_upgrade($oldversion) {
         }
 
         // 2. Migrate rows from the old local_datagrading_grades table if
-        // it's still installed alongside us.
+        // it's still installed alongside us. Idempotent: skips any row
+        // whose (dataid, recordid) is already present in the new table.
+        // This matters because the previous 2025120810 upgrade aborted
+        // after this INSERT but before the savepoint, leaving rows
+        // copied but $oldversion still below 2025120810, so the same
+        // step runs again on the retry.
         $oldtable = new xmldb_table('local_datagrading_grades');
         if ($dbman->table_exists($oldtable)) {
             $DB->execute(
                 'INSERT INTO {datafield_gradeentry_grades}
                     (dataid, recordid, userid, graderid, feedback, feedbackformat,
                      released, timecreated, timemodified)
-                 SELECT dataid, recordid, userid, graderid, feedback, feedbackformat,
-                        released, timecreated, timemodified
-                   FROM {local_datagrading_grades}'
+                 SELECT old.dataid, old.recordid, old.userid, old.graderid,
+                        old.feedback, old.feedbackformat,
+                        old.released, old.timecreated, old.timemodified
+                   FROM {local_datagrading_grades} old
+                  WHERE NOT EXISTS (
+                      SELECT 1
+                        FROM {datafield_gradeentry_grades} new
+                       WHERE new.dataid = old.dataid
+                         AND new.recordid = old.recordid
+                  )'
             );
         }
 
