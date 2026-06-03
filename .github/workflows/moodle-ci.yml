@@ -61,21 +61,10 @@ jobs:
           echo $(cd ci && pwd)/vendor/bin >> $GITHUB_PATH
           sudo locale-gen en_AU.UTF-8
 
-      # The companion local_datagrading plugin lives in this repo as a sibling
-      # directory, but it is a separate Moodle plugin. Move (not copy) it into
-      # the --extra-plugins container so that moodle-plugin-ci's lint/validate
-      # /phpcs/phpdoc/phpunit/behat passes against ./plugin only see the
-      # datafield_gradeentry files.
-      - name: Prepare extra plugins directory
-        run: |
-          mkdir extra_plugins
-          mv ./plugin/local_datagrading ./extra_plugins/local_datagrading
-
       - name: Install Moodle
         run: |
           moodle-plugin-ci install \
             --plugin ./plugin \
-            --extra-plugins ./extra_plugins \
             --db-host=127.0.0.1 \
             --branch ${{ matrix.moodle-branch }}
         env:

@@ -27,8 +27,8 @@
  *
  * Teachers grade entries via an inline panel in the browse view; students
  * see their released grade and feedback. Grades sync to the Moodle gradebook
- * via the companion local_datagrading plugin, which pushes a grade_item the
- * first time a teacher saves a grade.
+ * via this plugin's grade_manager, which pushes a grade_item the first time
+ * a teacher saves a grade.
  */
 class data_field_gradeentry extends data_field_base {
     /** @var string Field type identifier. */
@@ -71,19 +71,16 @@ class data_field_gradeentry extends data_field_base {
         global $DB;
 
         $context = context_module::instance($this->cm->id);
-        $isteacher = has_capability('local/datagrading:grade', $context);
+        $isteacher = has_capability('datafield/gradeentry:grade', $context);
 
         $content = $DB->get_record('data_content', ['fieldid' => $this->field->id, 'recordid' => $recordid]);
         $graderaw = ($content && $content->content !== null && $content->content !== '')
             ? (float) $content->content : null;
 
-        $meta = null;
-        if (\core_component::get_component_directory('local_datagrading')) {
-            $meta = $DB->get_record('local_datagrading_grades', [
-                'dataid' => $this->field->dataid,
-                'recordid' => $recordid,
-            ]);
-        }
+        $meta = $DB->get_record('datafield_gradeentry_grades', [
+            'dataid' => $this->field->dataid,
+            'recordid' => $recordid,
+        ]);
 
         $released = $meta ? (bool) $meta->released : false;
         $feedback = $meta ? (string) $meta->feedback : '';
@@ -112,10 +109,10 @@ class data_field_gradeentry extends data_field_base {
         $value = ($graderaw !== null) ? number_format($graderaw, $decimals, '.', '') : '';
         $maxlabel = ($max !== '') ? ' / ' . $max : '';
 
-        $releasedtext = get_string('gradedreleased', 'local_datagrading');
-        $unreleasedtext = get_string('gradenotreleased', 'local_datagrading');
-        $feedbacklabel = get_string('feedbacklabel', 'local_datagrading');
-        $gradelabel = get_string('grade', 'local_datagrading');
+        $releasedtext = get_string('gradedreleased', 'datafield_gradeentry');
+        $unreleasedtext = get_string('gradenotreleased', 'datafield_gradeentry');
+        $feedbacklabel = get_string('feedbacklabel', 'datafield_gradeentry');
+        $gradelabel = get_string('grade', 'datafield_gradeentry');
 
         $html = '<div class="gradeentry-teacher-panel">';
 
@@ -189,7 +186,7 @@ class data_field_gradeentry extends data_field_base {
      */
     private function render_student_view(?float $graderaw, string $feedback, bool $released): string {
         if (!$released || $graderaw === null) {
-            return '<span class="text-muted">' . get_string('gradepending', 'local_datagrading') . '</span>';
+            return '<span class="text-muted">' . get_string('gradepending', 'datafield_gradeentry') . '</span>';
         }
 
         $decimals = (int) ($this->field->param3 ?? 2);

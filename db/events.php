@@ -15,15 +15,18 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Plugin version metadata for local_datagrading.
+ * Event observer registrations for datafield_gradeentry.
  *
- * @package    local_datagrading
+ * @package    datafield_gradeentry
  * @copyright  2025 onwards, Australian developers
  * @license    https://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->version   = 2025120804;
-$plugin->requires  = 2024100700;
-$plugin->component = 'local_datagrading';
+$observers = [
+    [
+        'eventname' => '\datafield_gradeentry\event\entry_graded',
+        'callback' => '\datafield_gradeentry\observer::sync_to_gradebook',
+    ],
+];

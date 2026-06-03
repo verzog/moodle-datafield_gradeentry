@@ -17,12 +17,12 @@
 /**
  * Event fired when a teacher saves a grade for a database activity entry.
  *
- * @package    local_datagrading
+ * @package    datafield_gradeentry
  * @copyright  2025 onwards, Australian developers
  * @license    https://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
  */
 
-namespace local_datagrading\event;
+namespace datafield_gradeentry\event;
 
 /**
  * Represents the act of a teacher grading a single database entry.
@@ -47,7 +47,7 @@ class entry_graded extends \core\event\base {
      * @return string
      */
     public static function get_name(): string {
-        return get_string('gradeentry', 'local_datagrading');
+        return get_string('gradeentry', 'datafield_gradeentry');
     }
 
     /**

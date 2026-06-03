@@ -14,12 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
-namespace local_datagrading;
+namespace datafield_gradeentry;
 
 /**
- * Hook callbacks for local_datagrading.
+ * Hook callbacks for datafield_gradeentry.
  *
- * @package    local_datagrading
+ * @package    datafield_gradeentry
  * @copyright  2025 onwards, Australian developers
  * @license    https://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
  */
@@ -39,11 +39,20 @@ class hook_callbacks {
         }
 
         $context = $PAGE->context;
-        if (!has_capability('local/datagrading:grade', $context)) {
+        if (!has_capability('datafield/gradeentry:grade', $context)) {
             return;
         }
 
         $dataid = $PAGE->cm->instance;
+
+        // Only render the grading UI when this Database activity actually has
+        // a Grade entry field. Without this guard the progress bar and
+        // release-all button would appear on every Database activity, where
+        // they have no work to do and the release action would target an
+        // empty grade metadata set.
+        if (!$DB->record_exists('data_fields', ['dataid' => $dataid, 'type' => 'gradeentry'])) {
+            return;
+        }
 
         $total = $DB->count_records('data_records', ['dataid' => $dataid]);
         if ($total === 0) {
@@ -51,20 +60,20 @@ class hook_callbacks {
         }
 
         $graded = $DB->count_records_select(
-            'local_datagrading_grades',
+            'datafield_gradeentry_grades',
             'dataid = :dataid AND graderid IS NOT NULL',
             ['dataid' => $dataid]
         );
 
-        $PAGE->requires->js_call_amd('local_datagrading/inline_grader', 'init', [
+        $PAGE->requires->js_call_amd('datafield_gradeentry/inline_grader', 'init', [
             $PAGE->cm->id,
             $context->id,
         ]);
 
         $html  = \html_writer::start_div(
-            'local-datagrading-progress alert alert-info d-flex align-items-center gap-3',
+            'datafield-gradeentry-progress alert alert-info d-flex align-items-center gap-3',
             [
-                'id'          => 'local-datagrading-progress',
+                'id'          => 'datafield-gradeentry-progress',
                 'data-cmid'   => $PAGE->cm->id,
                 'data-graded' => $graded,
                 'data-total'  => $total,
@@ -72,14 +81,14 @@ class hook_callbacks {
         );
         $html .= \html_writer::tag(
             'span',
-            get_string('gradingprogress', 'local_datagrading', ['graded' => $graded, 'total' => $total]),
-            ['id' => 'local-datagrading-progress-text', 'class' => 'me-auto']
+            get_string('gradingprogress', 'datafield_gradeentry', ['graded' => $graded, 'total' => $total]),
+            ['id' => 'datafield-gradeentry-progress-text', 'class' => 'me-auto']
         );
         $html .= \html_writer::tag(
             'button',
-            get_string('releaseall', 'local_datagrading'),
+            get_string('releaseall', 'datafield_gradeentry'),
             [
-                'id'        => 'local-datagrading-release-all',
+                'id'        => 'datafield-gradeentry-release-all',
                 'class'     => 'btn btn-sm btn-secondary',
                 'data-cmid' => $PAGE->cm->id,
             ]

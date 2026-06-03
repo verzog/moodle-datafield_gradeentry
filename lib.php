@@ -15,14 +15,14 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Plugin library functions for local_datagrading.
+ * Plugin library functions for datafield_gradeentry.
  *
  * The page-footer markup that this plugin used to emit via the legacy
  * local_datagrading_before_footer() callback is now produced by the
- * \local_datagrading\hook_callbacks::before_footer_html_generation()
+ * \datafield_gradeentry\hook_callbacks::before_footer_html_generation()
  * hook callback (see db/hooks.php).
  *
- * @package    local_datagrading
+ * @package    datafield_gradeentry
  * @copyright  2025 onwards, Australian developers
  * @license    https://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
  */
@@ -34,7 +34,7 @@
  * @param  mixed    $grades  Grade object, array of grade objects, or 'reset'.
  * @return int  GRADE_UPDATE_OK or an error constant.
  */
-function local_datagrading_grade_item_update(stdClass $data, $grades = null): int {
+function datafield_gradeentry_grade_item_update(stdClass $data, $grades = null): int {
     global $CFG;
 
     require_once($CFG->libdir . '/gradelib.php');
@@ -51,5 +51,5 @@ function local_datagrading_grade_item_update(stdClass $data, $grades = null): in
         $grades = null;
     }
 
-    return grade_update('local/datagrading', $data->course, 'mod', 'data', $data->id, 0, $grades, $params);
+    return grade_update('mod/data/field/gradeentry', $data->course, 'mod', 'data', $data->id, 0, $grades, $params);
 }
