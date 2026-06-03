@@ -15,19 +15,19 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Unit tests for local_datagrading\grade_manager.
+ * Unit tests for datafield_gradeentry\grade_manager.
  *
- * @package    local_datagrading
+ * @package    datafield_gradeentry
  * @copyright  2025 onwards, Australian developers
  * @license    https://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
  */
 
-namespace local_datagrading\tests;
+namespace datafield_gradeentry\tests;
 
 /**
  * Tests for grade storage, release, and progress counting in grade_manager.
  *
- * @covers \local_datagrading\grade_manager
+ * @covers \datafield_gradeentry\grade_manager
  */
 class grade_manager_test extends \advanced_testcase {
     /** @var \stdClass Course. */
@@ -87,7 +87,7 @@ class grade_manager_test extends \advanced_testcase {
      * Progress returns zero counts when there are no entries.
      */
     public function test_progress_returns_zero_when_no_entries(): void {
-        $result = \local_datagrading\grade_manager::progress($this->data->id);
+        $result = \datafield_gradeentry\grade_manager::progress($this->data->id);
         $this->assertSame(0, $result['graded']);
         $this->assertSame(0, $result['total']);
     }
@@ -101,7 +101,7 @@ class grade_manager_test extends \advanced_testcase {
         $rid1 = $this->create_record($this->student->id);
         $this->create_record($this->student->id);
 
-        $DB->insert_record('local_datagrading_grades', (object) [
+        $DB->insert_record('datafield_gradeentry_grades', (object) [
             'dataid' => $this->data->id,
             'recordid' => $rid1,
             'userid' => $this->student->id,
@@ -113,7 +113,7 @@ class grade_manager_test extends \advanced_testcase {
             'timemodified' => time(),
         ]);
 
-        $result = \local_datagrading\grade_manager::progress($this->data->id);
+        $result = \datafield_gradeentry\grade_manager::progress($this->data->id);
         $this->assertSame(2, $result['total']);
         $this->assertSame(1, $result['graded']);
     }
@@ -125,7 +125,7 @@ class grade_manager_test extends \advanced_testcase {
         global $DB;
 
         $rid = $this->create_record($this->student->id);
-        $DB->insert_record('local_datagrading_grades', (object) [
+        $DB->insert_record('datafield_gradeentry_grades', (object) [
             'dataid' => $this->data->id,
             'recordid' => $rid,
             'userid' => $this->student->id,
@@ -137,9 +137,9 @@ class grade_manager_test extends \advanced_testcase {
             'timemodified' => time(),
         ]);
 
-        \local_datagrading\grade_manager::release($this->data->id, [$rid]);
+        \datafield_gradeentry\grade_manager::release($this->data->id, [$rid]);
 
-        $this->assertEquals(1, $DB->get_field('local_datagrading_grades', 'released', ['recordid' => $rid]));
+        $this->assertEquals(1, $DB->get_field('datafield_gradeentry_grades', 'released', ['recordid' => $rid]));
     }
 
     /**
@@ -150,7 +150,7 @@ class grade_manager_test extends \advanced_testcase {
 
         for ($i = 0; $i < 3; $i++) {
             $rid = $this->create_record($this->student->id);
-            $DB->insert_record('local_datagrading_grades', (object) [
+            $DB->insert_record('datafield_gradeentry_grades', (object) [
                 'dataid' => $this->data->id,
                 'recordid' => $rid,
                 'userid' => $this->student->id,
@@ -163,10 +163,10 @@ class grade_manager_test extends \advanced_testcase {
             ]);
         }
 
-        \local_datagrading\grade_manager::release($this->data->id);
+        \datafield_gradeentry\grade_manager::release($this->data->id);
 
         $count = $DB->count_records(
-            'local_datagrading_grades',
+            'datafield_gradeentry_grades',
             ['dataid' => $this->data->id, 'released' => 1]
         );
         $this->assertSame(3, $count);

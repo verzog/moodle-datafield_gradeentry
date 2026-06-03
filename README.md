@@ -21,6 +21,10 @@ The plugin can be also installed by putting the contents of this directory to
 
 Afterwards, log in to your Moodle site as an admin and go to *Site administration > Notifications* to trigger the installation.
 
+## Upgrading from a previous version that used local_datagrading
+
+If your site previously had both `datafield_gradeentry` and the companion `local_datagrading` plugin installed, the upgrade automatically migrates grade data, gradebook items and role overrides to the merged plugin. After the upgrade completes successfully, uninstall the now-redundant `local_datagrading` plugin from *Site administration > Plugins > Plugins overview*; Moodle will drop its tables on uninstall.
+
 ## Configuration
 
 After adding the field to a database activity, you can configure:

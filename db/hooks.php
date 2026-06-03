@@ -15,35 +15,18 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Capability definitions for the local_datagrading plugin.
+ * Hook callback registration for datafield_gradeentry.
  *
- * @package    local_datagrading
+ * @package    datafield_gradeentry
  * @copyright  2025 onwards, Australian developers
  * @license    https://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
 
-$capabilities = [
-
-    'local/datagrading:grade' => [
-        'captype' => 'write',
-        'contextlevel' => CONTEXT_MODULE,
-        'archetypes' => [
-            'teacher' => CAP_ALLOW,
-            'editingteacher' => CAP_ALLOW,
-            'manager' => CAP_ALLOW,
-        ],
-    ],
-
-    'local/datagrading:viewgrades' => [
-        'captype' => 'read',
-        'contextlevel' => CONTEXT_MODULE,
-        'archetypes' => [
-            'student' => CAP_ALLOW,
-            'teacher' => CAP_ALLOW,
-            'editingteacher' => CAP_ALLOW,
-            'manager' => CAP_ALLOW,
-        ],
+$callbacks = [
+    [
+        'hook'     => \core\hook\output\before_footer_html_generation::class,
+        'callback' => [\datafield_gradeentry\hook_callbacks::class, 'before_footer_html_generation'],
     ],
 ];

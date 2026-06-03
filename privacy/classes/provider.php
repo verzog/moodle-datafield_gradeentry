@@ -40,6 +40,15 @@ class provider implements
      */
     public static function get_metadata(collection $collection): collection {
         $collection->add_plugintype_link('mod_data', [], 'privacy:metadata');
+
+        $collection->add_database_table('datafield_gradeentry_grades', [
+            'userid' => 'privacy:metadata:datafield_gradeentry_grades:userid',
+            'graderid' => 'privacy:metadata:datafield_gradeentry_grades:graderid',
+            'grade' => 'privacy:metadata:datafield_gradeentry_grades:grade',
+            'feedback' => 'privacy:metadata:datafield_gradeentry_grades:feedback',
+            'released' => 'privacy:metadata:datafield_gradeentry_grades:released',
+        ], 'privacy:metadata:datafield_gradeentry_grades');
+
         return $collection;
     }
 

@@ -1,4 +1,4 @@
-@local_datagrading @mod_data
+@datafield_gradeentry @mod_data
 Feature: Teacher grades database activity entries inline
   As a teacher
   I want to grade student entries directly in the Database activity browse view

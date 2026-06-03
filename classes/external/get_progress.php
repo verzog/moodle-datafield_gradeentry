@@ -17,12 +17,12 @@
 /**
  * External function to return grading progress counts for a database activity.
  *
- * @package    local_datagrading
+ * @package    datafield_gradeentry
  * @copyright  2025 onwards, Australian developers
  * @license    https://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
  */
 
-namespace local_datagrading\external;
+namespace datafield_gradeentry\external;
 
 use core_external\external_api;
 use core_external\external_function_parameters;
@@ -56,9 +56,9 @@ class get_progress extends external_api {
         $cm = get_coursemodule_from_id('data', $cmid, 0, false, MUST_EXIST);
         $context = \context_module::instance($cm->id);
         self::validate_context($context);
-        require_capability('local/datagrading:grade', $context);
+        require_capability('datafield/gradeentry:grade', $context);
 
-        return \local_datagrading\grade_manager::progress($cm->instance);
+        return \datafield_gradeentry\grade_manager::progress($cm->instance);
     }
 
     /**

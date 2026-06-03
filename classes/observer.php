@@ -15,25 +15,25 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Event observers for the local_datagrading plugin.
+ * Event observers for the datafield_gradeentry plugin.
  *
- * @package    local_datagrading
+ * @package    datafield_gradeentry
  * @copyright  2025 onwards, Australian developers
  * @license    https://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
  */
 
-namespace local_datagrading;
+namespace datafield_gradeentry;
 
 /**
- * Handles Moodle events fired by local_datagrading and reacts accordingly.
+ * Handles Moodle events fired by datafield_gradeentry and reacts accordingly.
  */
 class observer {
     /**
      * Sync a saved grade to the Moodle gradebook when an entry is graded.
      *
-     * @param \local_datagrading\event\entry_graded $event  The grading event.
+     * @param \datafield_gradeentry\event\entry_graded $event  The grading event.
      */
-    public static function sync_to_gradebook(\local_datagrading\event\entry_graded $event): void {
+    public static function sync_to_gradebook(\datafield_gradeentry\event\entry_graded $event): void {
         global $DB;
 
         $data = $event->get_data();
@@ -56,6 +56,6 @@ class observer {
             'rawgrade' => $data['other']['grade'],
         ];
 
-        local_datagrading_grade_item_update($datarecord, $gradeobject);
+        datafield_gradeentry_grade_item_update($datarecord, $gradeobject);
     }
 }

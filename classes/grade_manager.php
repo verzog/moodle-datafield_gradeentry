@@ -15,14 +15,14 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Grade storage and gradebook synchronisation manager for local_datagrading.
+ * Grade storage and gradebook synchronisation manager for datafield_gradeentry.
  *
- * @package    local_datagrading
+ * @package    datafield_gradeentry
  * @copyright  2025 onwards, Australian developers
  * @license    https://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
  */
 
-namespace local_datagrading;
+namespace datafield_gradeentry;
 
 /**
  * Manages grade storage, retrieval, and gradebook synchronisation.
@@ -48,14 +48,14 @@ class grade_manager {
 
         $now = time();
 
-        $existing = $DB->get_record('local_datagrading_grades', ['dataid' => $dataid, 'recordid' => $recordid]);
+        $existing = $DB->get_record('datafield_gradeentry_grades', ['dataid' => $dataid, 'recordid' => $recordid]);
 
         if ($existing) {
             $existing->graderid = $graderid;
             $existing->feedback = $feedback;
             $existing->feedbackformat = FORMAT_MOODLE;
             $existing->timemodified = $now;
-            $DB->update_record('local_datagrading_grades', $existing);
+            $DB->update_record('datafield_gradeentry_grades', $existing);
         } else {
             $row = (object) [
                 'dataid' => $dataid,
@@ -68,7 +68,7 @@ class grade_manager {
                 'timecreated' => $now,
                 'timemodified' => $now,
             ];
-            $DB->insert_record('local_datagrading_grades', $row);
+            $DB->insert_record('datafield_gradeentry_grades', $row);
         }
 
         self::push_to_gradebook($dataid, $courseid, $studentid, $grade, $maxgrade);
@@ -90,7 +90,7 @@ class grade_manager {
             $count = 0;
             foreach ($recordids as $rid) {
                 $count += (int) $DB->set_field(
-                    'local_datagrading_grades',
+                    'datafield_gradeentry_grades',
                     'released',
                     1,
                     ['dataid' => $dataid, 'recordid' => (int) $rid]
@@ -100,13 +100,13 @@ class grade_manager {
         }
 
         $DB->execute(
-            'UPDATE {local_datagrading_grades}
+            'UPDATE {datafield_gradeentry_grades}
                 SET released = 1, timemodified = :now
               WHERE dataid = :dataid AND graderid IS NOT NULL',
             ['now' => $now, 'dataid' => $dataid]
         );
 
-        return $DB->count_records('local_datagrading_grades', ['dataid' => $dataid, 'released' => 1]);
+        return $DB->count_records('datafield_gradeentry_grades', ['dataid' => $dataid, 'released' => 1]);
     }
 
     /**
@@ -120,7 +120,7 @@ class grade_manager {
 
         $total = $DB->count_records('data_records', ['dataid' => $dataid]);
         $graded = $DB->count_records_select(
-            'local_datagrading_grades',
+            'datafield_gradeentry_grades',
             'dataid = :dataid AND graderid IS NOT NULL',
             ['dataid' => $dataid]
         );
@@ -146,7 +146,7 @@ class grade_manager {
     ): void {
         global $CFG, $DB;
 
-        require_once($CFG->dirroot . '/local/datagrading/lib.php');
+        require_once($CFG->dirroot . '/mod/data/field/gradeentry/lib.php');
 
         $data = $DB->get_record('data', ['id' => $dataid], 'id, name, course', MUST_EXIST);
         $data->_maxgrade = $maxgrade;
@@ -156,7 +156,7 @@ class grade_manager {
             'rawgrade' => $grade,
         ];
 
-        \local_datagrading_grade_item_update($data, $gradeobject);
+        \datafield_gradeentry_grade_item_update($data, $gradeobject);
     }
 
     /**
