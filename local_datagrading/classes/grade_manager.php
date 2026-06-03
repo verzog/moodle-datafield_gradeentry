@@ -144,7 +144,9 @@ class grade_manager {
         float $grade,
         float $maxgrade
     ): void {
-        global $DB;
+        global $CFG, $DB;
+
+        require_once($CFG->dirroot . '/local/datagrading/lib.php');
 
         $data = $DB->get_record('data', ['id' => $dataid], 'id, name, course', MUST_EXIST);
         $data->_maxgrade = $maxgrade;
@@ -154,7 +156,7 @@ class grade_manager {
             'rawgrade' => $grade,
         ];
 
-        local_datagrading_grade_item_update($data, $gradeobject);
+        \local_datagrading_grade_item_update($data, $gradeobject);
     }
 
     /**
