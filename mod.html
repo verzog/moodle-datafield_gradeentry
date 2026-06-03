@@ -21,11 +21,18 @@
  * form. $this refers to the data_field_gradeentry instance.
  *
  * mod_data's field-create/edit controller wraps this fragment in a <form>
- * tag and adds the sesskey, but it does NOT inject the field name,
- * description or required inputs - each field type's mod.html is
- * responsible for emitting them. Without name/description here, mod_data
- * receives an empty $fd->name on submit and the controller redirects back
- * with "Please choose another name for this field".
+ * tag and adds the sesskey, but it does NOT inject the standard field
+ * name and description inputs - each field type's mod.html is responsible
+ * for emitting them. Without name/description here, mod_data receives an
+ * empty $fd->name on submit and the controller redirects back with
+ * "Please choose another name for this field".
+ *
+ * The standard 'Required' control is intentionally NOT exposed: grade
+ * values are entered later by teachers, so display_add_field() only
+ * submits a hidden empty value. If 'required' were ever set to 1 the
+ * notemptyfield('', ...) check in the add-entry path would reject every
+ * student submission. A hidden required=0 input also clears any stale
+ * value on edit.
  *
  * @package    datafield_gradeentry
  * @copyright  2025 onwards, Australian developers
@@ -43,13 +50,7 @@ defined('MOODLE_INTERNAL') || die();
     <input type="text" class="form-control" id="description" name="description"
         value="<?php p($this->field->description ?? ''); ?>" />
 </div>
-<div class="mb-3 form-check">
-    <input type="checkbox" class="form-check-input" id="required" name="required" value="1"
-        <?php if (!empty($this->field->required)) { echo 'checked'; } ?> />
-    <label class="form-check-label" for="required">
-        <?php echo get_string('required'); ?>
-    </label>
-</div>
+<input type="hidden" name="required" value="0" />
 <div class="mb-3">
     <label for="param1" class="form-label"><?php echo get_string('mingrade', 'datafield_gradeentry'); ?></label>
     <input type="number" step="any" class="form-control" id="param1" name="param1"
