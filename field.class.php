@@ -43,14 +43,20 @@ class data_field_gradeentry extends data_field_base {
     }
 
     /**
-     * Hide this field from student add/edit forms - grading is teacher-only.
+     * Render a placeholder on the entry add/edit form.
+     *
+     * Grading is teacher-only, so students do not enter a value here; they
+     * see a notice that the grade is pending. A hidden input is emitted so
+     * mod_data still records this field as part of the submitted entry.
      *
      * @param int        $recordid  Existing record ID, or 0 for new entry.
-     * @param mixed|null $formdata  Previously submitted form data.
-     * @return string  Always empty; the field is never shown on the add form.
+     * @param mixed|null $formdata  Previously submitted form data (unused).
+     * @return string  HTML fragment.
      */
     public function display_add_field($recordid = 0, $formdata = null) {
-        return '';
+        $notice = get_string('awaitinggrade', 'datafield_gradeentry');
+        return '<div class="gradeentry-pending text-muted small">' . s($notice) . '</div>'
+            . '<input type="hidden" name="field_' . (int) $this->field->id . '" value="" />';
     }
 
     /**
@@ -239,11 +245,6 @@ class data_field_gradeentry extends data_field_base {
     /**
      * Build a SQL WHERE fragment for searching this field.
      *
-     * data_content.content is a TEXT column, so on PostgreSQL the comparison
-     * must be text-to-text. Wrapping both the column and the placeholder in
-     * sql_compare_text() (matching core's datafield_number) keeps the
-     * comparison portable across MySQL/MariaDB and PostgreSQL.
-     *
      * @param string $tablealias  Alias for the data_content table.
      * @param mixed  $value       The search value.
      * @return array  [sql, params].
@@ -256,8 +257,7 @@ class data_field_gradeentry extends data_field_base {
         $value = (string) (float) $value;
         return [
             " ({$tablealias}.fieldid = {$this->field->id}"
-                . " AND " . $DB->sql_compare_text("{$tablealias}.content")
-                . " = " . $DB->sql_compare_text(":{$name}") . ") ",
+                . " AND " . $DB->sql_compare_text("{$tablealias}.content") . " = :{$name}) ",
             [$name => $value],
         ];
     }
@@ -298,6 +298,12 @@ class data_field_gradeentry extends data_field_base {
     public function update_content($recordid, $value, $name = '') {
         global $DB;
 
+        // Students submit an empty value via the hidden input in display_add_field();
+        // leave any teacher-saved grade in place rather than wiping it.
+        if ($value === '' || $value === null) {
+            return true;
+        }
+
         $msg = $this->field_validation($value);
         if ($msg !== true) {
             throw new moodle_exception('erroroutofrange', 'datafield_gradeentry');
@@ -305,13 +311,13 @@ class data_field_gradeentry extends data_field_base {
 
         $content = $DB->get_record('data_content', ['fieldid' => $this->field->id, 'recordid' => $recordid]);
         if ($content) {
-            $content->content = ($value !== '') ? (float) $value : null;
+            $content->content = (float) $value;
             $DB->update_record('data_content', $content);
         } else {
             $DB->insert_record('data_content', (object) [
                 'fieldid' => $this->field->id,
                 'recordid' => $recordid,
-                'content' => ($value !== '') ? (float) $value : null,
+                'content' => (float) $value,
             ]);
         }
         return true;
@@ -350,5 +356,25 @@ class data_field_gradeentry extends data_field_base {
             'param3' => get_string('decimals', 'datafield_gradeentry'),
             'param4' => get_string('showaspercentage', 'datafield_gradeentry'),
         ];
+    }
+
+    /**
+     * Persist the new field record and create a matching gradebook grade_item
+     * so a column appears in the gradebook immediately after the field is added,
+     * even before any entries are graded.
+     *
+     * @return bool
+     */
+    public function insert_field() {
+        $result = parent::insert_field();
+
+        if ($result && function_exists('local_datagrading_grade_item_update')) {
+            global $DB;
+            $data = $DB->get_record('data', ['id' => $this->field->dataid], 'id, name, course', MUST_EXIST);
+            $data->_maxgrade = (float) ($this->field->param2 !== '' ? $this->field->param2 : 100);
+            local_datagrading_grade_item_update($data);
+        }
+
+        return $result;
     }
 }

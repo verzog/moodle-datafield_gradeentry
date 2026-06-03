@@ -22,6 +22,7 @@
  * @license    https://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
  */
 
+$string['awaitinggrade'] = 'Your teacher will enter a grade for this entry.';
 $string['decimals'] = 'Decimal places';
 $string['decimals_help'] = 'The number of decimal places to display for grade values.';
 $string['errornumeric'] = 'You must enter a numeric value.';
