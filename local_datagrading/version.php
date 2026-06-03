@@ -24,6 +24,6 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->version   = 2025120803;
+$plugin->version   = 2025120804;
 $plugin->requires  = 2024100700;
 $plugin->component = 'local_datagrading';

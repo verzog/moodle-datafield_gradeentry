@@ -35,6 +35,10 @@
  * @return int  GRADE_UPDATE_OK or an error constant.
  */
 function local_datagrading_grade_item_update(stdClass $data, $grades = null): int {
+    global $CFG;
+
+    require_once($CFG->libdir . '/gradelib.php');
+
     $params = [
         'itemname'  => $data->name,
         'gradetype' => GRADE_TYPE_VALUE,
