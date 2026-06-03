@@ -6,20 +6,27 @@ A custom Database activity field type that allows teachers to collect numeric gr
 
 - Moodle 5.0 or later
 - PHP 8.2 or later
+- The companion [`local_datagrading`](https://github.com/verzog/moodle-local_datagrading)
+  plugin, declared as a hard dependency in `version.php`. It supplies the
+  `local/datagrading:grade` capability, teacher grading UI strings, the AJAX
+  save endpoint, and the gradebook push. Moodle will refuse to install this
+  plugin until `local_datagrading` is present.
 
 ## Installing via uploaded ZIP file
 
-1. Log in to your Moodle site as an admin and go to *Site administration > Plugins > Install plugins*.
-2. Upload the ZIP file with the plugin code.
-3. Check the plugin validation report and finish the installation.
+1. Install [`local_datagrading`](https://github.com/verzog/moodle-local_datagrading) first.
+2. Log in to your Moodle site as an admin and go to *Site administration > Plugins > Install plugins*.
+3. Upload the ZIP file with the plugin code.
+4. Check the plugin validation report and finish the installation.
 
 ## Installing manually
 
-The plugin can be also installed by putting the contents of this directory to
-
-    {your/moodle/dirroot}/mod/data/field/gradeentry
-
-Afterwards, log in to your Moodle site as an admin and go to *Site administration > Notifications* to trigger the installation.
+1. Install `local_datagrading` by putting its contents into
+   `{your/moodle/dirroot}/local/datagrading`.
+2. Put the contents of this directory into
+   `{your/moodle/dirroot}/mod/data/field/gradeentry`.
+3. Log in as an admin and visit *Site administration > Notifications* to trigger
+   the installation of both plugins.
 
 ## Configuration
 
