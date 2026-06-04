@@ -15,6 +15,9 @@
         <FIELD NAME="feedback" TYPE="text" NOTNULL="false" COMMENT="Teacher feedback text"/>
         <FIELD NAME="feedbackformat" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="1"/>
         <FIELD NAME="released" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" COMMENT="1 = grade visible to student"/>
+        <FIELD NAME="submission_status" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="notsubmitted" COMMENT="Student submission status: notsubmitted, draft, submitted, resubmit"/>
+        <FIELD NAME="requireresubmission" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" COMMENT="1 = teacher requires student to resubmit"/>
+        <FIELD NAME="rubric_scores" TYPE="text" NOTNULL="false" COMMENT="JSON array of per-criterion scores for rubric grading"/>
         <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
         <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
       </FIELDS>

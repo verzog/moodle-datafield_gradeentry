@@ -14,9 +14,8 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Inline grader: wires up grade inputs, feedback textareas, and release
- * controls rendered by datafield_gradeentry for teacher views of the
- * Database activity.
+ * Inline grader: wires up grade inputs, feedback textareas, release controls,
+ * submission status buttons, require-resubmission checkboxes, and rubric panels.
  *
  * @module     datafield_gradeentry/inline_grader
  * @copyright  2025 onwards, Australian developers
@@ -36,78 +35,91 @@ const debounceTimers = new Map();
 /**
  * Initialise the inline grader on a Database activity browse page.
  *
- * Called by datafield_gradeentry\hook_callbacks::before_footer_html_generation()
- * via $PAGE->requires->js_call_amd.
- *
  * @param {number} cmid       Course-module ID.
- * @param {number} contextid  Module context ID (unused client-side; kept for future use).
+ * @param {number} contextid  Module context ID.
  */
 export const init = (cmid, contextid) => { // eslint-disable-line no-unused-vars
     getStrings([
-        {key: 'savinggrade',      component: 'datafield_gradeentry'},
-        {key: 'graded',           component: 'datafield_gradeentry'},
-        {key: 'errorsavegrade',   component: 'datafield_gradeentry'},
-        {key: 'gradingprogress',  component: 'datafield_gradeentry'},
-    ]).then(([savingStr, gradedStr, errorStr, progressStr]) => {
+        {key: 'savinggrade',    component: 'datafield_gradeentry'},
+        {key: 'graded',         component: 'datafield_gradeentry'},
+        {key: 'errorsavegrade', component: 'datafield_gradeentry'},
+        {key: 'gradingprogress', component: 'datafield_gradeentry'},
+        {key: 'savingstatus',   component: 'datafield_gradeentry'},
+        {key: 'errorsavestatus', component: 'datafield_gradeentry'},
+    ]).then(([savingStr, gradedStr, errorStr, progressStr, savingStatusStr, errorStatusStr]) => { // eslint-disable-line
         wireGradeInputs(cmid, savingStr, gradedStr, errorStr);
         wireFeedbackAreas(cmid, savingStr, gradedStr, errorStr);
         wireReleaseControls(cmid);
         wireReleaseAllButton(cmid);
+        wireSubmissionStatusButtons(cmid, savingStatusStr, errorStatusStr);
+        wireResubmissionControls(cmid);
+        wireRubricPanels(cmid, savingStr, gradedStr, errorStr);
         return;
     }).catch(Notification.exception);
 };
 
-/**
- * Wire debounced autosave to all grade inputs rendered by the datafield.
- */
-const wireGradeInputs = (cmid, savingStr, gradedStr, errorStr) => {
-    document.querySelectorAll('[data-gradeentry-field]').forEach(input => {
-        input.addEventListener('input', () => {
-            const recordid = parseInt(input.dataset.recordid, 10);
-            clearTimeout(debounceTimers.get(recordid));
-            debounceTimers.set(recordid, setTimeout(() => {
-                const feedback = getFeedbackFor(recordid);
-                triggerSave(cmid, input, input.dataset.fieldid, input.value, feedback, savingStr, gradedStr, errorStr);
-            }, DEBOUNCE_MS));
-        });
+// ---------------------------------------------------------------------------
+// Grade inputs (numeric and scale select)
+// ---------------------------------------------------------------------------
 
-        // Immediate save on blur in case the user tabs away before the debounce fires.
-        input.addEventListener('blur', () => {
-            const recordid = parseInt(input.dataset.recordid, 10);
-            clearTimeout(debounceTimers.get(recordid));
-            const feedback = getFeedbackFor(recordid);
-            triggerSave(cmid, input, input.dataset.fieldid, input.value, feedback, savingStr, gradedStr, errorStr);
-        });
+const wireGradeInputs = (cmid, savingStr, gradedStr, errorStr) => {
+    document.querySelectorAll('[data-gradeentry-field]:not([type="hidden"])').forEach(input => {
+        const method = input.dataset.gradingMethod || 'numeric';
+        if (method === 'rubric') {
+            return; // Rubric inputs are handled separately.
+        }
+
+        const saveHandler = () => {
+            const feedback = getFeedbackFor(input.dataset.recordid);
+            const value    = input.value;
+            if (value === '') {
+                return;
+            }
+            triggerSave(cmid, input, input.dataset.fieldid, parseFloat(value), feedback, '', savingStr, gradedStr, errorStr);
+        };
+
+        if (input.tagName === 'SELECT') {
+            input.addEventListener('change', saveHandler);
+        } else {
+            input.addEventListener('input', () => {
+                const recordid = parseInt(input.dataset.recordid, 10);
+                clearTimeout(debounceTimers.get(recordid));
+                debounceTimers.set(recordid, setTimeout(saveHandler, DEBOUNCE_MS));
+            });
+            input.addEventListener('blur', () => {
+                const recordid = parseInt(input.dataset.recordid, 10);
+                clearTimeout(debounceTimers.get(recordid));
+                saveHandler();
+            });
+        }
     });
 };
 
-/**
- * Wire blur-autosave to all feedback textareas.
- */
 const wireFeedbackAreas = (cmid, savingStr, gradedStr, errorStr) => {
     document.querySelectorAll('[data-gradeentry-feedback]').forEach(textarea => {
         textarea.addEventListener('blur', () => {
             const gradeInput = getGradeInputFor(textarea.dataset.recordid);
             if (!gradeInput || gradeInput.value === '') {
-                return; // Don't save feedback without a grade.
+                return;
             }
             triggerSave(
                 cmid, gradeInput, gradeInput.dataset.fieldid,
-                gradeInput.value, textarea.value,
-                savingStr, gradedStr, errorStr
+                parseFloat(gradeInput.value), textarea.value,
+                '', savingStr, gradedStr, errorStr
             );
         });
     });
 };
 
-/**
- * Wire release checkboxes (per-entry release toggle).
- */
+// ---------------------------------------------------------------------------
+// Release controls
+// ---------------------------------------------------------------------------
+
 const wireReleaseControls = (cmid) => {
     document.querySelectorAll('[data-gradeentry-release]').forEach(checkbox => {
         checkbox.addEventListener('change', () => {
             const recordid = parseInt(checkbox.dataset.recordid, 10);
-            const desired = checkbox.checked;
+            const desired  = checkbox.checked;
             Ajax.call([{
                 methodname: 'datafield_gradeentry_release_grades',
                 args: {cmid, recordids: [recordid], released: desired},
@@ -115,7 +127,6 @@ const wireReleaseControls = (cmid) => {
                     updateReleasedLabel(checkbox, desired);
                 },
                 fail: (ex) => {
-                    // Roll the checkbox back so the UI matches server state.
                     checkbox.checked = !desired;
                     Notification.exception(ex);
                 },
@@ -124,9 +135,6 @@ const wireReleaseControls = (cmid) => {
     });
 };
 
-/**
- * Wire the "Release all grades" button rendered by before_footer.
- */
 const wireReleaseAllButton = (cmid) => {
     const btn = document.getElementById('datafield-gradeentry-release-all');
     if (!btn) {
@@ -143,7 +151,6 @@ const wireReleaseAllButton = (cmid) => {
                     cb.checked = true;
                     updateReleasedLabel(cb, true);
                 });
-                // Briefly flash a confirmation on the progress bar.
                 const progressText = document.getElementById('datafield-gradeentry-progress-text');
                 if (progressText) {
                     const original = progressText.textContent;
@@ -161,10 +168,136 @@ const wireReleaseAllButton = (cmid) => {
     });
 };
 
+// ---------------------------------------------------------------------------
+// Submission status buttons (student draft / submit)
+// ---------------------------------------------------------------------------
+
+const wireSubmissionStatusButtons = (cmid, savingStatusStr, errorStatusStr) => {
+    document.querySelectorAll('[data-gradeentry-submit-status]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const recordid = parseInt(btn.dataset.recordid, 10);
+            const status   = btn.dataset.status;
+
+            // Visually indicate saving.
+            const badge = getSubmissionBadge(recordid);
+            if (badge) {
+                badge.textContent = savingStatusStr;
+            }
+
+            Ajax.call([{
+                methodname: 'datafield_gradeentry_save_submission_status',
+                args: {cmid, recordid, status},
+                done: (result) => {
+                    updateSubmissionBadge(recordid, result.status);
+                },
+                fail: (ex) => {
+                    if (badge) {
+                        badge.textContent = errorStatusStr;
+                    }
+                    Notification.exception(ex);
+                },
+            }]);
+        });
+    });
+};
+
+// ---------------------------------------------------------------------------
+// Require resubmission controls (teacher)
+// ---------------------------------------------------------------------------
+
+const wireResubmissionControls = (cmid) => {
+    document.querySelectorAll('[data-gradeentry-resubmit]').forEach(checkbox => {
+        checkbox.addEventListener('change', () => {
+            const recordid = parseInt(checkbox.dataset.recordid, 10);
+            const desired  = checkbox.checked;
+
+            Ajax.call([{
+                methodname: 'datafield_gradeentry_require_resubmission',
+                args: {cmid, recordid, require: desired},
+                done: () => {
+                    // Reflect the new status in the submission badge.
+                    const newStatus = desired ? 'resubmit' : 'submitted';
+                    updateSubmissionBadge(recordid, newStatus);
+                },
+                fail: (ex) => {
+                    checkbox.checked = !desired;
+                    Notification.exception(ex);
+                },
+            }]);
+        });
+    });
+};
+
+// ---------------------------------------------------------------------------
+// Rubric panels
+// ---------------------------------------------------------------------------
+
+const wireRubricPanels = (cmid, savingStr, gradedStr, errorStr) => {
+    document.querySelectorAll('[data-gradeentry-rubric]').forEach(panel => {
+        const recordid = parseInt(panel.dataset.recordid, 10);
+        const fieldid  = parseInt(panel.dataset.fieldid, 10);
+        const hidden   = panel.querySelector('[data-gradeentry-field][type="hidden"]');
+
+        panel.querySelectorAll('.gradeentry-criterion').forEach(criterion => {
+            criterion.querySelectorAll('.gradeentry-rubric-level').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    // Deselect siblings in this criterion.
+                    criterion.querySelectorAll('.gradeentry-rubric-level').forEach(b => {
+                        b.classList.remove('btn-primary', 'active');
+                        b.classList.add('btn-outline-secondary');
+                    });
+                    // Select clicked level.
+                    btn.classList.remove('btn-outline-secondary');
+                    btn.classList.add('btn-primary', 'active');
+
+                    // Recalculate total and update hidden input.
+                    const {total, scores} = calcRubricTotal(panel);
+                    if (hidden) {
+                        hidden.value = total;
+                    }
+
+                    // Update displayed total.
+                    const totalEl = panel.querySelector('.gradeentry-rubric-total');
+                    if (totalEl) {
+                        totalEl.textContent = totalEl.textContent.replace(/[\d.]+/, total);
+                    }
+
+                    // Save via the standard triggerSave path.
+                    const feedback = getFeedbackFor(recordid);
+                    triggerSave(
+                        cmid, hidden, fieldid, total, feedback,
+                        JSON.stringify(scores),
+                        savingStr, gradedStr, errorStr
+                    );
+                });
+            });
+        });
+    });
+};
+
 /**
- * Call the save_grade web service and update the status indicator.
+ * Compute the total rubric score from selected level buttons.
+ *
+ * @param {Element} panel  The rubric panel element.
+ * @returns {{total: number, scores: number[]}}
  */
-const triggerSave = (cmid, gradeInput, fieldid, gradeValue, feedback, savingStr, gradedStr, errorStr) => {
+const calcRubricTotal = (panel) => {
+    let total = 0;
+    const scores = [];
+    panel.querySelectorAll('.gradeentry-criterion').forEach(criterion => {
+        const selected = criterion.querySelector('.gradeentry-rubric-level.active');
+        const score    = selected ? parseFloat(selected.dataset.score) : 0;
+        total += score;
+        scores.push(score);
+    });
+    return {total, scores};
+};
+
+// ---------------------------------------------------------------------------
+// Core save call
+// ---------------------------------------------------------------------------
+
+const triggerSave = (cmid, gradeInput, fieldid, gradeValue, feedback, rubricscores, savingStr, gradedStr, errorStr) => {
     const recordid = parseInt(gradeInput.dataset.recordid, 10);
     const status   = getStatusFor(recordid);
 
@@ -176,8 +309,9 @@ const triggerSave = (cmid, gradeInput, fieldid, gradeValue, feedback, savingStr,
             cmid,
             recordid,
             fieldid: parseInt(fieldid, 10),
-            grade: parseFloat(gradeValue),
+            grade: gradeValue,
             feedback: feedback || '',
+            rubricscores: rubricscores || '',
         },
         done: (result) => {
             setStatus(status, 'saved', gradedStr);
@@ -195,7 +329,7 @@ const triggerSave = (cmid, gradeInput, fieldid, gradeValue, feedback, savingStr,
 // ---------------------------------------------------------------------------
 
 const getGradeInputFor = (recordid) =>
-    document.querySelector(`[data-gradeentry-field][data-recordid="${recordid}"]`);
+    document.querySelector(`[data-gradeentry-field][data-recordid="${recordid}"]:not([type="hidden"])`);
 
 const getFeedbackFor = (recordid) => {
     const el = document.querySelector(`[data-gradeentry-feedback][data-recordid="${recordid}"]`);
@@ -205,12 +339,15 @@ const getFeedbackFor = (recordid) => {
 const getStatusFor = (recordid) =>
     document.querySelector(`[data-gradeentry-status][data-recordid="${recordid}"]`);
 
+const getSubmissionBadge = (recordid) =>
+    document.querySelector(`[data-gradeentry-submission-badge][data-recordid="${recordid}"]`);
+
 const setStatus = (el, state, text) => {
     if (!el) {
         return;
     }
     el.textContent = text;
-    el.className = 'gradeentry-status gradeentry-status--' + state;
+    el.className   = 'gradeentry-status gradeentry-status--' + state;
 };
 
 const updateReleasedLabel = (checkbox, isReleased) => {
@@ -233,7 +370,32 @@ const updateProgressBar = (graded, total) => {
 
     const text = document.getElementById('datafield-gradeentry-progress-text');
     if (text) {
-        // Replace the placeholder values in the existing string pattern.
         text.textContent = text.textContent.replace(/\d+\s*\/\s*\d+/, graded + ' / ' + total);
     }
+};
+
+/** Status badge text lookup keyed by status string. */
+const STATUS_LABELS = {
+    notsubmitted: 'Not submitted',
+    draft:        'Draft',
+    submitted:    'Submitted for grading',
+    resubmit:     'Resubmission required',
+};
+
+const updateSubmissionBadge = (recordid, status) => {
+    const badge = getSubmissionBadge(recordid);
+    if (!badge) {
+        return;
+    }
+    badge.textContent = STATUS_LABELS[status] || status;
+
+    // Swap badge colour class.
+    badge.classList.remove('text-bg-secondary', 'text-bg-warning', 'text-bg-success', 'text-bg-danger');
+    const colourMap = {
+        notsubmitted: 'text-bg-secondary',
+        draft:        'text-bg-warning',
+        submitted:    'text-bg-success',
+        resubmit:     'text-bg-danger',
+    };
+    badge.classList.add(colourMap[status] || 'text-bg-secondary');
 };

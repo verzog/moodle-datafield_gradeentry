@@ -28,6 +28,18 @@ namespace datafield_gradeentry;
  * Manages grade storage, retrieval, and gradebook synchronisation.
  */
 class grade_manager {
+
+    /** Submission status constants. */
+    const STATUS_NOTSUBMITTED = 'notsubmitted';
+    const STATUS_DRAFT        = 'draft';
+    const STATUS_SUBMITTED    = 'submitted';
+    const STATUS_RESUBMIT     = 'resubmit';
+
+    /** Grading method constants. */
+    const METHOD_NUMERIC = 'numeric';
+    const METHOD_SCALE   = 'scale';
+    const METHOD_RUBRIC  = 'rubric';
+
     /**
      * Save a grade for one database entry and sync to the Moodle gradebook.
      *
@@ -35,13 +47,21 @@ class grade_manager {
      * calling web-service layer. This method writes the grade metadata row
      * (feedback, released flag, grader) and fires the gradebook update.
      *
-     * @param int    $cmid      Course-module ID of the database activity.
-     * @param int    $recordid  ID of the data_records row.
-     * @param float  $grade     Numeric grade value.
-     * @param string $feedback  Teacher feedback (may be empty).
-     * @param int    $graderid  User ID of the teacher saving the grade.
+     * @param int         $cmid         Course-module ID of the database activity.
+     * @param int         $recordid     ID of the data_records row.
+     * @param float       $grade        Numeric grade value.
+     * @param string      $feedback     Teacher feedback (may be empty).
+     * @param int         $graderid     User ID of the teacher saving the grade.
+     * @param string|null $rubricscores JSON-encoded per-criterion rubric scores (optional).
      */
-    public static function save(int $cmid, int $recordid, float $grade, string $feedback, int $graderid): void {
+    public static function save(
+        int $cmid,
+        int $recordid,
+        float $grade,
+        string $feedback,
+        int $graderid,
+        ?string $rubricscores = null
+    ): void {
         global $DB;
 
         [$dataid, $courseid, $studentid, $maxgrade] = self::resolve_record_context($cmid, $recordid);
@@ -51,22 +71,29 @@ class grade_manager {
         $existing = $DB->get_record('datafield_gradeentry_grades', ['dataid' => $dataid, 'recordid' => $recordid]);
 
         if ($existing) {
-            $existing->graderid = $graderid;
-            $existing->feedback = $feedback;
-            $existing->feedbackformat = FORMAT_MOODLE;
-            $existing->timemodified = $now;
+            $existing->graderid           = $graderid;
+            $existing->feedback           = $feedback;
+            $existing->feedbackformat     = FORMAT_MOODLE;
+            $existing->requireresubmission = 0;
+            $existing->timemodified       = $now;
+            if ($rubricscores !== null) {
+                $existing->rubric_scores = $rubricscores;
+            }
             $DB->update_record('datafield_gradeentry_grades', $existing);
         } else {
             $row = (object) [
-                'dataid' => $dataid,
-                'recordid' => $recordid,
-                'userid' => $studentid,
-                'graderid' => $graderid,
-                'feedback' => $feedback,
-                'feedbackformat' => FORMAT_MOODLE,
-                'released' => 0,
-                'timecreated' => $now,
-                'timemodified' => $now,
+                'dataid'               => $dataid,
+                'recordid'             => $recordid,
+                'userid'               => $studentid,
+                'graderid'             => $graderid,
+                'feedback'             => $feedback,
+                'feedbackformat'       => FORMAT_MOODLE,
+                'released'             => 0,
+                'submission_status'    => self::STATUS_SUBMITTED,
+                'requireresubmission'  => 0,
+                'rubric_scores'        => $rubricscores,
+                'timecreated'          => $now,
+                'timemodified'         => $now,
             ];
             $DB->insert_record('datafield_gradeentry_grades', $row);
         }
@@ -80,8 +107,7 @@ class grade_manager {
      * @param int        $dataid     Database activity ID.
      * @param int[]|null $recordids  Specific record IDs, or null to operate on all graded entries.
      * @param bool       $released   Target state - true to release to the student, false to unrelease.
-     * @return int  Number of rows matching $released after the operation
-     *              (the count the caller can show as "n released" / "n unreleased").
+     * @return int  Number of rows matching $released after the operation.
      */
     public static function release(int $dataid, ?array $recordids = null, bool $released = true): int {
         global $DB;
@@ -113,6 +139,82 @@ class grade_manager {
     }
 
     /**
+     * Update the submission status for a student's entry.
+     *
+     * Creates the metadata row if it doesn't yet exist (e.g. student sets
+     * draft status before a teacher has graded).
+     *
+     * @param int    $dataid    Database activity ID.
+     * @param int    $recordid  Data record ID.
+     * @param int    $userid    Student user ID.
+     * @param string $status    One of the STATUS_* constants.
+     */
+    public static function update_submission_status(
+        int $dataid,
+        int $recordid,
+        int $userid,
+        string $status
+    ): void {
+        global $DB;
+
+        $allowed = [self::STATUS_NOTSUBMITTED, self::STATUS_DRAFT, self::STATUS_SUBMITTED, self::STATUS_RESUBMIT];
+        if (!in_array($status, $allowed, true)) {
+            throw new \coding_exception('Invalid submission status: ' . $status);
+        }
+
+        $now = time();
+        $existing = $DB->get_record('datafield_gradeentry_grades', ['dataid' => $dataid, 'recordid' => $recordid]);
+
+        if ($existing) {
+            $existing->submission_status = $status;
+            // Clear resubmission flag when student resubmits.
+            if ($status === self::STATUS_SUBMITTED) {
+                $existing->requireresubmission = 0;
+            }
+            $existing->timemodified = $now;
+            $DB->update_record('datafield_gradeentry_grades', $existing);
+        } else {
+            $DB->insert_record('datafield_gradeentry_grades', (object) [
+                'dataid'               => $dataid,
+                'recordid'             => $recordid,
+                'userid'               => $userid,
+                'graderid'             => null,
+                'feedback'             => '',
+                'feedbackformat'       => FORMAT_MOODLE,
+                'released'             => 0,
+                'submission_status'    => $status,
+                'requireresubmission'  => 0,
+                'rubric_scores'        => null,
+                'timecreated'          => $now,
+                'timemodified'         => $now,
+            ]);
+        }
+    }
+
+    /**
+     * Set or clear the "require resubmission" flag on an entry.
+     *
+     * @param int  $dataid    Database activity ID.
+     * @param int  $recordid  Data record ID.
+     * @param bool $require   True to require resubmission, false to clear.
+     */
+    public static function set_require_resubmission(int $dataid, int $recordid, bool $require): void {
+        global $DB;
+
+        $now = time();
+        $existing = $DB->get_record('datafield_gradeentry_grades', ['dataid' => $dataid, 'recordid' => $recordid]);
+
+        if ($existing) {
+            $existing->requireresubmission = $require ? 1 : 0;
+            if ($require) {
+                $existing->submission_status = self::STATUS_RESUBMIT;
+            }
+            $existing->timemodified = $now;
+            $DB->update_record('datafield_gradeentry_grades', $existing);
+        }
+    }
+
+    /**
      * Return graded and total entry counts for a database activity.
      *
      * @param  int $dataid  Database activity ID.
@@ -129,6 +231,34 @@ class grade_manager {
         );
 
         return ['graded' => (int) $graded, 'total' => (int) $total];
+    }
+
+    /**
+     * Parse the items of a Moodle scale into an ordered array.
+     *
+     * @param  int $scaleid  Scale ID from mdl_scale.
+     * @return string[]  Ordered scale items (index 0 = first item).
+     */
+    public static function get_scale_items(int $scaleid): array {
+        global $DB;
+        $scale = $DB->get_record('scale', ['id' => $scaleid], 'scale', IGNORE_MISSING);
+        if (!$scale) {
+            return [];
+        }
+        return array_map('trim', explode(',', $scale->scale));
+    }
+
+    /**
+     * Return the numeric grade value for a scale item index.
+     *
+     * Moodle stores scale grades as 1-based integers matching the item position.
+     *
+     * @param  int   $scaleid  Scale ID.
+     * @param  int   $index    1-based position in the scale.
+     * @return float
+     */
+    public static function scale_index_to_grade(int $scaleid, int $index): float {
+        return (float) $index;
     }
 
     /**

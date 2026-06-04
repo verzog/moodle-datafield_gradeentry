@@ -27,26 +27,43 @@ defined('MOODLE_INTERNAL') || die();
 $functions = [
 
     'datafield_gradeentry_save_grade' => [
-        'classname' => \datafield_gradeentry\external\save_grade::class,
+        'classname'   => \datafield_gradeentry\external\save_grade::class,
         'description' => 'Save a grade and optional feedback for a database entry.',
-        'type' => 'write',
-        'ajax' => true,
+        'type'        => 'write',
+        'ajax'        => true,
         'capabilities' => 'datafield/gradeentry:grade',
     ],
 
     'datafield_gradeentry_release_grades' => [
-        'classname' => \datafield_gradeentry\external\release_grades::class,
+        'classname'   => \datafield_gradeentry\external\release_grades::class,
         'description' => 'Release one or all grades in a database activity to students.',
-        'type' => 'write',
-        'ajax' => true,
+        'type'        => 'write',
+        'ajax'        => true,
         'capabilities' => 'datafield/gradeentry:grade',
     ],
 
     'datafield_gradeentry_get_progress' => [
-        'classname' => \datafield_gradeentry\external\get_progress::class,
+        'classname'   => \datafield_gradeentry\external\get_progress::class,
         'description' => 'Return grading progress counts for a database activity.',
-        'type' => 'read',
-        'ajax' => true,
+        'type'        => 'read',
+        'ajax'        => true,
         'capabilities' => 'datafield/gradeentry:grade',
     ],
+
+    'datafield_gradeentry_save_submission_status' => [
+        'classname'   => \datafield_gradeentry\external\save_submission_status::class,
+        'description' => 'Save the submission status (draft or submitted) for a student\'s entry.',
+        'type'        => 'write',
+        'ajax'        => true,
+        'loginrequired' => true,
+    ],
+
+    'datafield_gradeentry_require_resubmission' => [
+        'classname'   => \datafield_gradeentry\external\require_resubmission::class,
+        'description' => 'Set or clear the require-resubmission flag on an entry.',
+        'type'        => 'write',
+        'ajax'        => true,
+        'capabilities' => 'datafield/gradeentry:grade',
+    ],
+
 ];
