@@ -240,6 +240,11 @@ class data_field_gradeentry extends data_field_base {
 
     /**
      * Render the numeric grade input (original grading method).
+     *
+     * @param int        $recordid  Database record ID.
+     * @param int        $fieldid   Grade entry field ID.
+     * @param float|null $graderaw  Current grade, or null if ungraded.
+     * @return string  HTML fragment.
      */
     private function render_numeric_input(int $recordid, int $fieldid, ?float $graderaw): string {
         $min      = s($this->field->param1 ?? '');
@@ -280,6 +285,11 @@ class data_field_gradeentry extends data_field_base {
 
     /**
      * Render a scale dropdown for scale grading method.
+     *
+     * @param int        $recordid  Database record ID.
+     * @param int        $fieldid   Grade entry field ID.
+     * @param float|null $graderaw  Current grade as 1-based scale index, or null.
+     * @return string  HTML fragment.
      */
     private function render_scale_input(int $recordid, int $fieldid, ?float $graderaw): string {
         $scaleid = (int) ($this->field->param6 ?? 0);
@@ -315,6 +325,12 @@ class data_field_gradeentry extends data_field_base {
 
     /**
      * Render a rubric grading panel with criteria and level buttons.
+     *
+     * @param int         $recordid     Database record ID.
+     * @param int         $fieldid      Grade entry field ID.
+     * @param float|null  $graderaw     Current total rubric score, or null.
+     * @param string|null $rubricscores JSON per-criterion scores, or null.
+     * @return string  HTML fragment.
      */
     private function render_rubric_panel(
         int $recordid,
@@ -354,18 +370,19 @@ class data_field_gradeentry extends data_field_base {
 
         foreach ($criteria as $cidx => $criterion) {
             $criterionname = s($criterion['name'] ?? 'Criterion ' . ($cidx + 1));
-            $levels        = $criterion['levels'] ?? [];
-            $savedScore    = isset($savedscores[$cidx]) ? (float) $savedscores[$cidx] : null;
+            $levels = $criterion['levels'] ?? [];
+            $savedscore = isset($savedscores[$cidx]) ? (float) $savedscores[$cidx] : null;
 
             $html .= '<div class="gradeentry-criterion mb-2" data-criterion-index="' . $cidx . '">';
             $html .= '<div class="small fw-semibold mb-1">' . $criterionname . '</div>';
             $html .= '<div class="d-flex flex-wrap gap-1">';
 
             foreach ($levels as $level) {
-                $score       = (float) ($level['score'] ?? 0);
-                $desc        = s($level['desc'] ?? '');
-                $isselected  = ($savedScore !== null && (float)$savedScore === $score);
-                $btnclass    = 'btn btn-sm gradeentry-rubric-level' . ($isselected ? ' btn-primary active' : ' btn-outline-secondary');
+                $score = (float) ($level['score'] ?? 0);
+                $desc = s($level['desc'] ?? '');
+                $isselected = ($savedscore !== null && (float) $savedscore === $score);
+                $btnextra = $isselected ? ' btn-primary active' : ' btn-outline-secondary';
+                $btnclass = 'btn btn-sm gradeentry-rubric-level' . $btnextra;
 
                 $html .= '<button type="button"';
                 $html .= ' class="' . $btnclass . '"';
@@ -394,13 +411,17 @@ class data_field_gradeentry extends data_field_base {
 
     /**
      * Render a submission status badge for the teacher panel.
+     *
+     * @param int    $recordid  Database record ID.
+     * @param string $status    One of the grade_manager::STATUS_* constants.
+     * @return string  HTML fragment.
      */
     private function render_submission_status_badge(int $recordid, string $status): string {
         $badges = [
             grade_manager::STATUS_NOTSUBMITTED => ['text-bg-secondary', 'submissionnotsubmitted'],
-            grade_manager::STATUS_DRAFT        => ['text-bg-warning',   'submissiondraft'],
-            grade_manager::STATUS_SUBMITTED    => ['text-bg-success',   'submissionsubmitted'],
-            grade_manager::STATUS_RESUBMIT     => ['text-bg-danger',    'submissionresubmit'],
+            grade_manager::STATUS_DRAFT => ['text-bg-warning', 'submissiondraft'],
+            grade_manager::STATUS_SUBMITTED => ['text-bg-success', 'submissionsubmitted'],
+            grade_manager::STATUS_RESUBMIT => ['text-bg-danger', 'submissionresubmit'],
         ];
 
         $config = $badges[$status] ?? $badges[grade_manager::STATUS_NOTSUBMITTED];
@@ -416,6 +437,10 @@ class data_field_gradeentry extends data_field_base {
 
     /**
      * Render the require-resubmission control for the teacher panel.
+     *
+     * @param int  $recordid  Database record ID.
+     * @param bool $resubmit  Whether resubmission is currently required.
+     * @return string  HTML fragment.
      */
     private function render_resubmission_control(int $recordid, bool $resubmit): string {
         $requirelabel = get_string('requireresubmission', 'datafield_gradeentry');
@@ -667,12 +692,12 @@ class data_field_gradeentry extends data_field_base {
      */
     public function get_field_params(): array {
         return [
-            'param1' => get_string('mingrade',       'datafield_gradeentry'),
-            'param2' => get_string('maxgrade',       'datafield_gradeentry'),
-            'param3' => get_string('decimals',       'datafield_gradeentry'),
+            'param1' => get_string('mingrade', 'datafield_gradeentry'),
+            'param2' => get_string('maxgrade', 'datafield_gradeentry'),
+            'param3' => get_string('decimals', 'datafield_gradeentry'),
             'param4' => get_string('showaspercentage', 'datafield_gradeentry'),
-            'param5' => get_string('gradingmethod',  'datafield_gradeentry'),
-            'param6' => get_string('scaleid',        'datafield_gradeentry'),
+            'param5' => get_string('gradingmethod', 'datafield_gradeentry'),
+            'param6' => get_string('scaleid', 'datafield_gradeentry'),
             'param7' => get_string('rubriccriteria', 'datafield_gradeentry'),
         ];
     }

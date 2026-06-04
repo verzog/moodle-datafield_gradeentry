@@ -34,19 +34,22 @@ use datafield_gradeentry\grade_manager;
  * Allows a teacher to require a student to resubmit their entry.
  */
 class require_resubmission extends external_api {
-
     /**
+     * Declare the expected input parameters.
+     *
      * @return external_function_parameters
      */
     public static function execute_parameters(): external_function_parameters {
         return new external_function_parameters([
-            'cmid'     => new external_value(PARAM_INT, 'Course-module ID of the database activity'),
+            'cmid' => new external_value(PARAM_INT, 'Course-module ID of the database activity'),
             'recordid' => new external_value(PARAM_INT, 'ID of the data_records row'),
-            'require'  => new external_value(PARAM_BOOL, 'True to require resubmission, false to clear the flag'),
+            'require' => new external_value(PARAM_BOOL, 'True to require resubmission, false to clear the flag'),
         ]);
     }
 
     /**
+     * Set or clear the resubmission flag for one entry.
+     *
      * @param int  $cmid
      * @param int  $recordid
      * @param bool $require
@@ -56,13 +59,13 @@ class require_resubmission extends external_api {
         global $DB;
 
         [
-            'cmid'     => $cmid,
+            'cmid' => $cmid,
             'recordid' => $recordid,
-            'require'  => $require,
+            'require' => $require,
         ] = self::validate_parameters(self::execute_parameters(), [
-            'cmid'     => $cmid,
+            'cmid' => $cmid,
             'recordid' => $recordid,
-            'require'  => $require,
+            'require' => $require,
         ]);
 
         $cm = get_coursemodule_from_id('data', $cmid, 0, false, MUST_EXIST);
@@ -83,6 +86,8 @@ class require_resubmission extends external_api {
     }
 
     /**
+     * Declare the return value structure.
+     *
      * @return external_single_structure
      */
     public static function execute_returns(): external_single_structure {

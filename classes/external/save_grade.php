@@ -151,7 +151,9 @@ class save_grade extends external_api {
             ? $rubricscores
             : null;
 
-        grade_manager::save($cmid, $recordid, $grade, $feedback, (int) $USER->id, $rubricjson);
+        $scaleid = ($method === grade_manager::METHOD_SCALE) ? (int) ($field->param6 ?? 0) : 0;
+
+        grade_manager::save($cmid, $recordid, $grade, $feedback, (int) $USER->id, $rubricjson, $scaleid);
 
         $event = \datafield_gradeentry\event\entry_graded::create([
             'context'       => $context,

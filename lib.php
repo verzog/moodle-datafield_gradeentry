@@ -39,12 +39,21 @@ function datafield_gradeentry_grade_item_update(stdClass $data, $grades = null):
 
     require_once($CFG->libdir . '/gradelib.php');
 
-    $params = [
-        'itemname'  => $data->name,
-        'gradetype' => GRADE_TYPE_VALUE,
-        'grademax'  => (float) ($data->_maxgrade ?? 100),
-        'grademin'  => 0,
-    ];
+    $scaleid = (int) ($data->_scaleid ?? 0);
+    if ($scaleid > 0) {
+        $params = [
+            'itemname'  => $data->name,
+            'gradetype' => GRADE_TYPE_SCALE,
+            'scaleid'   => $scaleid,
+        ];
+    } else {
+        $params = [
+            'itemname'  => $data->name,
+            'gradetype' => GRADE_TYPE_VALUE,
+            'grademax'  => (float) ($data->_maxgrade ?? 100),
+            'grademin'  => 0,
+        ];
+    }
 
     if ($grades === 'reset') {
         $params['reset'] = true;

@@ -34,19 +34,22 @@ use datafield_gradeentry\grade_manager;
  * Allows a student to mark their entry as draft or submitted for grading.
  */
 class save_submission_status extends external_api {
-
     /**
+     * Declare the expected input parameters.
+     *
      * @return external_function_parameters
      */
     public static function execute_parameters(): external_function_parameters {
         return new external_function_parameters([
-            'cmid'     => new external_value(PARAM_INT, 'Course-module ID of the database activity'),
+            'cmid' => new external_value(PARAM_INT, 'Course-module ID of the database activity'),
             'recordid' => new external_value(PARAM_INT, 'ID of the data_records row'),
-            'status'   => new external_value(PARAM_ALPHA, 'Submission status: draft or submitted'),
+            'status' => new external_value(PARAM_ALPHA, 'Submission status: draft or submitted'),
         ]);
     }
 
     /**
+     * Persist the student's chosen submission status.
+     *
      * @param int    $cmid
      * @param int    $recordid
      * @param string $status
@@ -56,13 +59,13 @@ class save_submission_status extends external_api {
         global $DB, $USER;
 
         [
-            'cmid'     => $cmid,
+            'cmid' => $cmid,
             'recordid' => $recordid,
-            'status'   => $status,
+            'status' => $status,
         ] = self::validate_parameters(self::execute_parameters(), [
-            'cmid'     => $cmid,
+            'cmid' => $cmid,
             'recordid' => $recordid,
-            'status'   => $status,
+            'status' => $status,
         ]);
 
         $cm = get_coursemodule_from_id('data', $cmid, 0, false, MUST_EXIST);
@@ -83,7 +86,7 @@ class save_submission_status extends external_api {
         );
 
         // Students can only update their own entry status.
-        if ((int)$record->userid !== (int)$USER->id) {
+        if ((int) $record->userid !== (int) $USER->id) {
             require_capability('datafield/gradeentry:grade', $context);
         }
 
@@ -94,12 +97,14 @@ class save_submission_status extends external_api {
     }
 
     /**
+     * Declare the return value structure.
+     *
      * @return external_single_structure
      */
     public static function execute_returns(): external_single_structure {
         return new external_single_structure([
             'success' => new external_value(PARAM_BOOL, 'True if the status was saved successfully'),
-            'status'  => new external_value(PARAM_ALPHA, 'The saved status'),
+            'status' => new external_value(PARAM_ALPHA, 'The saved status'),
         ]);
     }
 }
