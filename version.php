@@ -24,6 +24,6 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->version    = 2025120815;
+$plugin->version    = 2026010100;
 $plugin->requires   = 2024100700;
 $plugin->component  = 'datafield_gradeentry';

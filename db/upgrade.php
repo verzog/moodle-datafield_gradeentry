@@ -97,5 +97,29 @@ function xmldb_datafield_gradeentry_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2025120810, 'datafield', 'gradeentry');
     }
 
+    if ($oldversion < 2026010100) {
+        $table = new xmldb_table('datafield_gradeentry_grades');
+
+        // Add submission_status column.
+        $field = new xmldb_field('submission_status', XMLDB_TYPE_CHAR, '20', null, XMLDB_NOTNULL, null, 'notsubmitted');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // Add requireresubmission column.
+        $field = new xmldb_field('requireresubmission', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // Add rubric_scores column.
+        $field = new xmldb_field('rubric_scores', XMLDB_TYPE_TEXT, null, null, null, null, null);
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        upgrade_plugin_savepoint(true, 2026010100, 'datafield', 'gradeentry');
+    }
+
     return true;
 }

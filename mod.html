@@ -20,25 +20,19 @@
  * Included by data_field_base::display_edit_field() inside the field-edit
  * form. $this refers to the data_field_gradeentry instance.
  *
- * mod_data's field-create/edit controller wraps this fragment in a <form>
- * tag and adds the sesskey, but it does NOT inject the standard field
- * name and description inputs - each field type's mod.html is responsible
- * for emitting them. Without name/description here, mod_data receives an
- * empty $fd->name on submit and the controller redirects back with
- * "Please choose another name for this field".
- *
- * The standard 'Required' control is intentionally NOT exposed: grade
- * values are entered later by teachers, so display_add_field() only
- * submits a hidden empty value. If 'required' were ever set to 1 the
- * notemptyfield('', ...) check in the add-entry path would reject every
- * student submission. A hidden required=0 input also clears any stale
- * value on edit.
- *
  * @package    datafield_gradeentry
  * @copyright  2025 onwards, Australian developers
  * @license    https://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
  */
 defined('MOODLE_INTERNAL') || die();
+
+$currentmethod = (string) ($this->field->param5 ?? 'numeric');
+$currentscale  = (int)    ($this->field->param6 ?? 0);
+
+// Load all available Moodle scales for the current course (or site-wide).
+$scales = \grade_scale::fetch_all_global();
+$coursescales = \grade_scale::fetch_all_local($COURSE->id ?? 0);
+$allscales = array_merge($coursescales ?: [], $scales ?: []);
 ?>
 <div class="mb-3">
     <label for="name" class="form-label"><?php echo get_string('fieldname', 'data'); ?></label>
@@ -51,37 +45,175 @@ defined('MOODLE_INTERNAL') || die();
         value="<?php p($this->field->description ?? ''); ?>" />
 </div>
 <input type="hidden" name="required" value="0" />
+
+<hr class="my-3" />
+<h5 class="mb-3"><?php echo get_string('gradingmethod', 'datafield_gradeentry'); ?></h5>
+
 <div class="mb-3">
-    <label for="param1" class="form-label"><?php echo get_string('mingrade', 'datafield_gradeentry'); ?></label>
-    <input type="number" step="any" class="form-control" id="param1" name="param1"
-        value="<?php p($this->field->param1 ?? ''); ?>" />
+    <div class="d-flex gap-3 flex-wrap">
+        <div class="form-check">
+            <input type="radio" class="form-check-input" id="param5_numeric" name="param5" value="numeric"
+                <?php if ($currentmethod === 'numeric') echo 'checked'; ?> />
+            <label class="form-check-label" for="param5_numeric">
+                <?php echo get_string('gradingmethod_numeric', 'datafield_gradeentry'); ?>
+            </label>
+        </div>
+        <div class="form-check">
+            <input type="radio" class="form-check-input" id="param5_scale" name="param5" value="scale"
+                <?php if ($currentmethod === 'scale') echo 'checked'; ?> />
+            <label class="form-check-label" for="param5_scale">
+                <?php echo get_string('gradingmethod_scale', 'datafield_gradeentry'); ?>
+            </label>
+        </div>
+        <div class="form-check">
+            <input type="radio" class="form-check-input" id="param5_rubric" name="param5" value="rubric"
+                <?php if ($currentmethod === 'rubric') echo 'checked'; ?> />
+            <label class="form-check-label" for="param5_rubric">
+                <?php echo get_string('gradingmethod_rubric', 'datafield_gradeentry'); ?>
+            </label>
+        </div>
+    </div>
     <small class="form-text text-muted">
-        <?php echo get_string('mingrade_help', 'datafield_gradeentry'); ?>
+        <?php echo get_string('gradingmethod_help', 'datafield_gradeentry'); ?>
     </small>
 </div>
-<div class="mb-3">
-    <label for="param2" class="form-label"><?php echo get_string('maxgrade', 'datafield_gradeentry'); ?></label>
-    <input type="number" step="any" class="form-control" id="param2" name="param2"
-        value="<?php p($this->field->param2 ?? ''); ?>" />
-    <small class="form-text text-muted">
-        <?php echo get_string('maxgrade_help', 'datafield_gradeentry'); ?>
-    </small>
+
+<?php /* Numeric options */ ?>
+<div id="gradeentry-numeric-options" class="gradeentry-method-options"
+     style="<?php echo ($currentmethod !== 'numeric') ? 'display:none' : ''; ?>">
+    <div class="mb-3">
+        <label for="param1" class="form-label"><?php echo get_string('mingrade', 'datafield_gradeentry'); ?></label>
+        <input type="number" step="any" class="form-control" id="param1" name="param1"
+            value="<?php p($this->field->param1 ?? ''); ?>" />
+        <small class="form-text text-muted">
+            <?php echo get_string('mingrade_help', 'datafield_gradeentry'); ?>
+        </small>
+    </div>
+    <div class="mb-3">
+        <label for="param2" class="form-label"><?php echo get_string('maxgrade', 'datafield_gradeentry'); ?></label>
+        <input type="number" step="any" class="form-control" id="param2" name="param2"
+            value="<?php p($this->field->param2 ?? ''); ?>" />
+        <small class="form-text text-muted">
+            <?php echo get_string('maxgrade_help', 'datafield_gradeentry'); ?>
+        </small>
+    </div>
+    <div class="mb-3">
+        <label for="param3" class="form-label"><?php echo get_string('decimals', 'datafield_gradeentry'); ?></label>
+        <input type="number" min="0" max="10" class="form-control" id="param3" name="param3"
+            value="<?php p($this->field->param3 ?? '2'); ?>" />
+        <small class="form-text text-muted">
+            <?php echo get_string('decimals_help', 'datafield_gradeentry'); ?>
+        </small>
+    </div>
+    <div class="mb-3 form-check">
+        <input type="checkbox" class="form-check-input" id="param4" name="param4" value="1"
+            <?php if (!empty($this->field->param4)) { echo 'checked'; } ?> />
+        <label class="form-check-label" for="param4">
+            <?php echo get_string('showaspercentage', 'datafield_gradeentry'); ?>
+        </label>
+        <small class="form-text text-muted d-block">
+            <?php echo get_string('showaspercentage_help', 'datafield_gradeentry'); ?>
+        </small>
+    </div>
 </div>
-<div class="mb-3">
-    <label for="param3" class="form-label"><?php echo get_string('decimals', 'datafield_gradeentry'); ?></label>
-    <input type="number" min="0" max="10" class="form-control" id="param3" name="param3"
-        value="<?php p($this->field->param3 ?? '2'); ?>" />
-    <small class="form-text text-muted">
-        <?php echo get_string('decimals_help', 'datafield_gradeentry'); ?>
-    </small>
+
+<?php /* Scale options */ ?>
+<div id="gradeentry-scale-options" class="gradeentry-method-options"
+     style="<?php echo ($currentmethod !== 'scale') ? 'display:none' : ''; ?>">
+    <div class="mb-3">
+        <label for="param6" class="form-label"><?php echo get_string('scaleid', 'datafield_gradeentry'); ?></label>
+        <select class="form-select" id="param6" name="param6">
+            <option value="">— <?php echo get_string('scaleid', 'datafield_gradeentry'); ?> —</option>
+            <?php foreach ($allscales as $scale): ?>
+                <option value="<?php p($scale->id); ?>"
+                    <?php if ((int)$scale->id === $currentscale) echo 'selected'; ?>>
+                    <?php p($scale->name); ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+        <small class="form-text text-muted">
+            <?php echo get_string('scaleid_help', 'datafield_gradeentry'); ?>
+        </small>
+    </div>
 </div>
-<div class="mb-3 form-check">
-    <input type="checkbox" class="form-check-input" id="param4" name="param4" value="1"
-        <?php if (!empty($this->field->param4)) { echo 'checked'; } ?> />
-    <label class="form-check-label" for="param4">
-        <?php echo get_string('showaspercentage', 'datafield_gradeentry'); ?>
-    </label>
-    <small class="form-text text-muted d-block">
-        <?php echo get_string('showaspercentage_help', 'datafield_gradeentry'); ?>
-    </small>
+
+<?php /* Rubric options */ ?>
+<div id="gradeentry-rubric-options" class="gradeentry-method-options"
+     style="<?php echo ($currentmethod !== 'rubric') ? 'display:none' : ''; ?>">
+    <div class="mb-3">
+        <label for="param7" class="form-label"><?php echo get_string('rubriccriteria', 'datafield_gradeentry'); ?></label>
+        <textarea class="form-control font-monospace" id="param7" name="param7" rows="8"
+            style="font-size:0.85em"><?php p($this->field->param7 ?? ''); ?></textarea>
+        <small class="form-text text-muted">
+            <?php echo get_string('rubriccriteria_help', 'datafield_gradeentry'); ?>
+        </small>
+        <div class="mt-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="gradeentry-rubric-validate">
+                Validate JSON
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary ms-1" id="gradeentry-rubric-example">
+                Load example
+            </button>
+            <span id="gradeentry-rubric-msg" class="small ms-2"></span>
+        </div>
+    </div>
 </div>
+
+<script>
+(function() {
+    // Show/hide method-specific option panels.
+    document.querySelectorAll('input[name="param5"]').forEach(function(radio) {
+        radio.addEventListener('change', function() {
+            document.querySelectorAll('.gradeentry-method-options').forEach(function(el) {
+                el.style.display = 'none';
+            });
+            var target = document.getElementById('gradeentry-' + radio.value + '-options');
+            if (target) target.style.display = '';
+        });
+    });
+
+    // Validate rubric JSON.
+    var validateBtn = document.getElementById('gradeentry-rubric-validate');
+    if (validateBtn) {
+        validateBtn.addEventListener('click', function() {
+            var ta  = document.getElementById('param7');
+            var msg = document.getElementById('gradeentry-rubric-msg');
+            try {
+                var data = JSON.parse(ta.value);
+                if (!Array.isArray(data)) throw new Error('Must be a JSON array.');
+                msg.textContent = '✓ Valid (' + data.length + ' criteria)';
+                msg.className = 'small ms-2 text-success';
+            } catch (e) {
+                msg.textContent = '✗ ' + e.message;
+                msg.className = 'small ms-2 text-danger';
+            }
+        });
+    }
+
+    // Load example rubric.
+    var exampleBtn = document.getElementById('gradeentry-rubric-example');
+    if (exampleBtn) {
+        exampleBtn.addEventListener('click', function() {
+            var example = [
+                {
+                    "name": "Content",
+                    "levels": [
+                        {"score": 0, "desc": "Missing"},
+                        {"score": 3, "desc": "Partial"},
+                        {"score": 5, "desc": "Complete"}
+                    ]
+                },
+                {
+                    "name": "Presentation",
+                    "levels": [
+                        {"score": 0, "desc": "Poor"},
+                        {"score": 3, "desc": "Adequate"},
+                        {"score": 5, "desc": "Excellent"}
+                    ]
+                }
+            ];
+            document.getElementById('param7').value = JSON.stringify(example, null, 2);
+        });
+    }
+})();
+</script>
