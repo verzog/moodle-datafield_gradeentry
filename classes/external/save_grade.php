@@ -147,6 +147,36 @@ class save_grade extends external_api {
             }
         }
 
+        // Validate rubric scores before any DB writes so a bad payload never
+        // leaves data_content updated while grade metadata is skipped.
+        $rubricjson = null;
+        if ($method === grade_manager::METHOD_RUBRIC && $rubricscores !== '') {
+            $decoded = json_decode($rubricscores, true);
+            if (!is_array($decoded)) {
+                throw new \invalid_parameter_exception('rubricscores must be a valid JSON array.');
+            }
+            $criteriajson = (string) ($field->param7 ?? '');
+            $criteria     = $criteriajson !== '' ? (json_decode($criteriajson, true) ?? []) : [];
+            if (count($decoded) !== count($criteria)) {
+                throw new \invalid_parameter_exception(
+                    'rubricscores must contain one entry per criterion (' . count($criteria) . ' expected).'
+                );
+            }
+            foreach ($criteria as $cidx => $criterion) {
+                if (!array_key_exists($cidx, $decoded)) {
+                    throw new \invalid_parameter_exception('rubricscores is missing criterion index ' . $cidx . '.');
+                }
+                $levels      = $criterion['levels'] ?? [];
+                $validscores = array_map(static fn($l) => (float) ($l['score'] ?? 0), $levels);
+                if (!in_array((float) $decoded[$cidx], $validscores, true)) {
+                    throw new \invalid_parameter_exception(
+                        'Score for criterion ' . $cidx . ' is not a valid level score.'
+                    );
+                }
+            }
+            $rubricjson = $rubricscores;
+        }
+
         $existing = $DB->get_record('data_content', ['fieldid' => $fieldid, 'recordid' => $recordid]);
         if ($existing) {
             $existing->content = $grade;
@@ -158,10 +188,6 @@ class save_grade extends external_api {
                 'content'  => $grade,
             ]);
         }
-
-        $rubricjson = ($method === grade_manager::METHOD_RUBRIC && $rubricscores !== '')
-            ? $rubricscores
-            : null;
 
         $scaleid = ($method === grade_manager::METHOD_SCALE) ? (int) ($field->param6 ?? 0) : 0;
 
