@@ -147,18 +147,8 @@ class save_grade extends external_api {
             }
         }
 
-        $existing = $DB->get_record('data_content', ['fieldid' => $fieldid, 'recordid' => $recordid]);
-        if ($existing) {
-            $existing->content = $grade;
-            $DB->update_record('data_content', $existing);
-        } else {
-            $DB->insert_record('data_content', (object) [
-                'fieldid'  => $fieldid,
-                'recordid' => $recordid,
-                'content'  => $grade,
-            ]);
-        }
-
+        // Validate rubric scores before any DB writes so a bad payload never
+        // leaves data_content updated while grade metadata is skipped.
         $rubricjson = null;
         if ($method === grade_manager::METHOD_RUBRIC && $rubricscores !== '') {
             $decoded = json_decode($rubricscores, true);
@@ -185,6 +175,18 @@ class save_grade extends external_api {
                 }
             }
             $rubricjson = $rubricscores;
+        }
+
+        $existing = $DB->get_record('data_content', ['fieldid' => $fieldid, 'recordid' => $recordid]);
+        if ($existing) {
+            $existing->content = $grade;
+            $DB->update_record('data_content', $existing);
+        } else {
+            $DB->insert_record('data_content', (object) [
+                'fieldid'  => $fieldid,
+                'recordid' => $recordid,
+                'content'  => $grade,
+            ]);
         }
 
         $scaleid = ($method === grade_manager::METHOD_SCALE) ? (int) ($field->param6 ?? 0) : 0;
