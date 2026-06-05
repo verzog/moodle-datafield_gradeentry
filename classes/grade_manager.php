@@ -118,7 +118,20 @@ class grade_manager {
 
         [$dataid, $courseid, $studentid] = self::resolve_record_context($cmid, $recordid);
 
-        $DB->delete_records('datafield_gradeentry_grades', ['dataid' => $dataid, 'recordid' => $recordid]);
+        $existing = $DB->get_record('datafield_gradeentry_grades', ['dataid' => $dataid, 'recordid' => $recordid]);
+
+        if ($existing) {
+            // Reset only the grading fields; preserve submission_status and
+            // requireresubmission because this table is their only storage.
+            $existing->graderid       = null;
+            $existing->feedback       = '';
+            $existing->feedbackformat = FORMAT_MOODLE;
+            $existing->released       = 0;
+            $existing->rubric_scores  = null;
+            $existing->timemodified   = time();
+            $DB->update_record('datafield_gradeentry_grades', $existing);
+        }
+        // If no row exists there is nothing to clear; skip the DB write.
 
         require_once($CFG->dirroot . '/mod/data/field/gradeentry/lib.php');
 
@@ -126,7 +139,7 @@ class grade_manager {
         $data->_maxgrade = 100;
         $data->_scaleid  = 0;
 
-        // Passing rawgrade = null removes the grade item entry.
+        // rawgrade = null removes the gradebook entry for this student.
         $gradeobject = (object) ['userid' => $studentid, 'rawgrade' => null];
         \datafield_gradeentry_grade_item_update($data, $gradeobject);
     }
