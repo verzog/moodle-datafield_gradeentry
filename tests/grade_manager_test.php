@@ -19,17 +19,17 @@
  *
  * @package    datafield_gradeentry
  * @copyright  2025 onwards, Australian developers
- * @license    https://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
+ * @license    {@link https://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later}
  */
 
-namespace datafield_gradeentry\tests;
+namespace datafield_gradeentry;
 
 /**
  * Tests for grade storage, release, and progress counting in grade_manager.
  *
  * @covers \datafield_gradeentry\grade_manager
  */
-class grade_manager_test extends \advanced_testcase {
+final class grade_manager_test extends \advanced_testcase {
     /** @var \stdClass Course. */
     private \stdClass $course;
 

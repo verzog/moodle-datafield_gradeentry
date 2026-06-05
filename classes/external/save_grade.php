@@ -19,7 +19,7 @@
  *
  * @package    datafield_gradeentry
  * @copyright  2025 onwards, Australian developers
- * @license    https://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
+ * @license    {@link https://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later}
  */
 
 namespace datafield_gradeentry\external;

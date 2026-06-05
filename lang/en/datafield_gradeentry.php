@@ -19,7 +19,7 @@
  *
  * @package    datafield_gradeentry
  * @copyright  2025 onwards, Australian developers
- * @license    https://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
+ * @license    {@link https://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later}
  */
 
 $string['awaitinggrade'] = 'Your teacher will enter a grade for this entry.';
@@ -46,8 +46,8 @@ $string['graderelease'] = 'Release grade to student';
 $string['gradingmethod'] = 'Grading method';
 $string['gradingmethod_help'] = 'Choose how teachers will grade entries: numeric score, a Moodle scale, or a rubric with defined criteria and levels.';
 $string['gradingmethod_numeric'] = 'Numeric';
-$string['gradingmethod_scale'] = 'Scale';
 $string['gradingmethod_rubric'] = 'Rubric';
+$string['gradingmethod_scale'] = 'Scale';
 $string['gradingprogress'] = 'Graded: {$a->graded} / {$a->total}';
 $string['maxgrade'] = 'Maximum grade';
 $string['maxgrade_help'] = 'The maximum allowable grade value for this field.';
@@ -78,8 +78,8 @@ $string['scaleid'] = 'Scale';
 $string['scaleid_help'] = 'Select the Moodle scale to use for grading. The scale items will appear as a dropdown for teachers.';
 $string['showaspercentage'] = 'Show as percentage';
 $string['showaspercentage_help'] = 'Display the entered grade as a percentage of the maximum grade.';
-$string['submitforgrading'] = 'Submit for grading';
 $string['submissiondraft'] = 'Draft';
+$string['submitforgrading'] = 'Submit for grading';
 $string['submissionnotsubmitted'] = 'Not submitted';
 $string['submissionresubmit'] = 'Resubmission required';
 $string['submissionstatus'] = 'Submission status';
