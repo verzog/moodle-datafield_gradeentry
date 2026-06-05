@@ -153,7 +153,7 @@ class data_field_gradeentry extends data_field_base {
             return $this->render_teacher_panel($recordid, $graderaw, $feedback, $released, $status, $resubmit, $rubricscores);
         }
 
-        return $this->render_student_view($graderaw, $feedback, $released, $status, $resubmit);
+        return $this->render_student_view($graderaw, $feedback, $released, $status, $resubmit, $rubricscores);
     }
 
     /**
@@ -482,7 +482,8 @@ class data_field_gradeentry extends data_field_base {
         string $feedback,
         bool $released,
         string $status,
-        bool $resubmit
+        bool $resubmit,
+        ?string $rubricscores = null
     ): string {
         $html = '<div class="gradeentry-student-view">';
 
@@ -534,6 +535,44 @@ class data_field_gradeentry extends data_field_base {
         }
 
         $html .= '<strong>' . $formatted . '</strong>';
+
+        // Rubric breakdown: show per-criterion scores when available.
+        if ($method === grade_manager::METHOD_RUBRIC && $rubricscores !== null) {
+            $criteriajson = (string) ($this->field->param7 ?? '');
+            $criteria     = $criteriajson !== '' ? (json_decode($criteriajson, true) ?? []) : [];
+            $savedscores  = json_decode($rubricscores, true) ?? [];
+
+            if (!empty($criteria)) {
+                $html .= '<dl class="gradeentry-rubric-breakdown mt-2 mb-1 small">';
+                foreach ($criteria as $cidx => $criterion) {
+                    $criterionname = s($criterion['name'] ?? 'Criterion ' . ($cidx + 1));
+                    $levels        = $criterion['levels'] ?? [];
+                    $savedscore    = isset($savedscores[$cidx]) ? (float) $savedscores[$cidx] : null;
+
+                    // Find the matching level description for the saved score.
+                    $leveldesc = '';
+                    foreach ($levels as $level) {
+                        if ($savedscore !== null && (float) ($level['score'] ?? 0) === $savedscore) {
+                            $leveldesc = s($level['desc'] ?? '');
+                            break;
+                        }
+                    }
+
+                    $html .= '<div class="gradeentry-rubric-criterion-row d-flex gap-2 mb-1">';
+                    $html .= '<dt class="fw-semibold mb-0">' . $criterionname . '</dt>';
+                    $html .= '<dd class="mb-0 text-muted">';
+                    if ($savedscore !== null) {
+                        $html .= ($leveldesc !== '' ? $leveldesc . ' ' : '') . '(' . $savedscore . ')';
+                    } else {
+                        $html .= '—';
+                    }
+                    $html .= '</dd>';
+                    $html .= '</div>';
+                }
+                $html .= '</dl>';
+            }
+        }
+
         if ($feedback !== '') {
             $html .= '<p class="mt-1 text-muted small">' . format_text($feedback, FORMAT_MOODLE) . '</p>';
         }
