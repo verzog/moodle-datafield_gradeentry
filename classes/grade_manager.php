@@ -108,6 +108,30 @@ class grade_manager {
     }
 
     /**
+     * Clear the grade for a single data record and remove it from the gradebook.
+     *
+     * @param int $cmid      Course-module ID of the database activity.
+     * @param int $recordid  Data record ID.
+     */
+    public static function delete(int $cmid, int $recordid): void {
+        global $DB, $CFG;
+
+        [$dataid, $courseid, $studentid] = self::resolve_record_context($cmid, $recordid);
+
+        $DB->delete_records('datafield_gradeentry_grades', ['dataid' => $dataid, 'recordid' => $recordid]);
+
+        require_once($CFG->dirroot . '/mod/data/field/gradeentry/lib.php');
+
+        $data = $DB->get_record('data', ['id' => $dataid], 'id, name, course', MUST_EXIST);
+        $data->_maxgrade = 100;
+        $data->_scaleid  = 0;
+
+        // Passing rawgrade = null removes the grade item entry.
+        $gradeobject = (object) ['userid' => $studentid, 'rawgrade' => null];
+        \datafield_gradeentry_grade_item_update($data, $gradeobject);
+    }
+
+    /**
      * Set the released state of one or more entries.
      *
      * @param int        $dataid     Database activity ID.
