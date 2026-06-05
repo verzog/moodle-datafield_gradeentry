@@ -49,7 +49,12 @@ class save_grade extends external_api {
             'cmid'         => new external_value(PARAM_INT, 'Course-module ID of the database activity'),
             'recordid'     => new external_value(PARAM_INT, 'ID of the data_records row to grade'),
             'fieldid'      => new external_value(PARAM_INT, 'ID of the gradeentry field'),
-            'grade'        => new external_value(PARAM_FLOAT, 'Numeric grade value (or scale index for scale grading); null clears the grade', VALUE_DEFAULT, null),
+            'grade'        => new external_value(
+                PARAM_FLOAT,
+                'Numeric grade value (or scale index for scale grading); null clears the grade',
+                VALUE_DEFAULT,
+                null
+            ),
             'feedback'     => new external_value(PARAM_TEXT, 'Teacher feedback', VALUE_DEFAULT, ''),
             'rubricscores' => new external_value(PARAM_RAW, 'JSON rubric criterion scores', VALUE_DEFAULT, ''),
         ]);

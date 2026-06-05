@@ -147,7 +147,7 @@ class grade_manager {
         $data->_maxgrade = $maxgrade;
         $data->_scaleid  = $scaleid;
 
-        // rawgrade = null removes the gradebook entry for this student.
+        // Rawgrade = null removes the gradebook entry for this student.
         $gradeobject = (object) ['userid' => $studentid, 'rawgrade' => null];
         \datafield_gradeentry_grade_item_update($data, $gradeobject);
     }
