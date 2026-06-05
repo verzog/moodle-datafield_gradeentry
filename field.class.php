@@ -470,11 +470,12 @@ class data_field_gradeentry extends data_field_base {
     /**
      * Render the student-facing grade and feedback view.
      *
-     * @param float|null $graderaw  The stored grade, or null if ungraded.
-     * @param string     $feedback  Teacher feedback text.
-     * @param bool       $released  Whether the grade has been released.
-     * @param string     $status    Student's current submission status.
-     * @param bool       $resubmit  Whether teacher requires resubmission.
+     * @param float|null  $graderaw     The stored grade, or null if ungraded.
+     * @param string      $feedback     Teacher feedback text.
+     * @param bool        $released     Whether the grade has been released.
+     * @param string      $status       Student's current submission status.
+     * @param bool        $resubmit     Whether teacher requires resubmission.
+     * @param string|null $rubricscores JSON per-criterion scores, or null.
      * @return string  HTML fragment.
      */
     private function render_student_view(
