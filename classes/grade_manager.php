@@ -112,8 +112,9 @@ class grade_manager {
      *
      * @param int $cmid      Course-module ID of the database activity.
      * @param int $recordid  Data record ID.
+     * @param int $fieldid   ID of the gradeentry field (needed to read scale/maxgrade config).
      */
-    public static function delete(int $cmid, int $recordid): void {
+    public static function delete(int $cmid, int $recordid, int $fieldid): void {
         global $DB, $CFG;
 
         [$dataid, $courseid, $studentid] = self::resolve_record_context($cmid, $recordid);
@@ -135,9 +136,16 @@ class grade_manager {
 
         require_once($CFG->dirroot . '/mod/data/field/gradeentry/lib.php');
 
+        // Use the field's actual grading configuration so the gradebook item
+        // type (GRADE_TYPE_SCALE vs GRADE_TYPE_VALUE) is not altered by this call.
+        $field   = $DB->get_record('data_fields', ['id' => $fieldid, 'dataid' => $dataid], 'param2,param5,param6', MUST_EXIST);
+        $method  = (string) ($field->param5 ?? self::METHOD_NUMERIC);
+        $scaleid = ($method === self::METHOD_SCALE) ? (int) ($field->param6 ?? 0) : 0;
+        $maxgrade = ($scaleid > 0) ? 0.0 : (float) ($field->param2 !== '' && $field->param2 !== null ? $field->param2 : 100);
+
         $data = $DB->get_record('data', ['id' => $dataid], 'id, name, course', MUST_EXIST);
-        $data->_maxgrade = 100;
-        $data->_scaleid  = 0;
+        $data->_maxgrade = $maxgrade;
+        $data->_scaleid  = $scaleid;
 
         // rawgrade = null removes the gradebook entry for this student.
         $gradeobject = (object) ['userid' => $studentid, 'rawgrade' => null];
