@@ -19,7 +19,7 @@
  *
  * @package    datafield_gradeentry
  * @copyright  2025 onwards, Australian developers
- * @license    https://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
+ * @license    {@link https://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later}
  */
 
 namespace datafield_gradeentry\external;
@@ -49,7 +49,12 @@ class save_grade extends external_api {
             'cmid'         => new external_value(PARAM_INT, 'Course-module ID of the database activity'),
             'recordid'     => new external_value(PARAM_INT, 'ID of the data_records row to grade'),
             'fieldid'      => new external_value(PARAM_INT, 'ID of the gradeentry field'),
-            'grade'        => new external_value(PARAM_FLOAT, 'Numeric grade value (or scale index for scale grading)'),
+            'grade'        => new external_value(
+                PARAM_FLOAT,
+                'Numeric grade value (or scale index for scale grading); null clears the grade',
+                VALUE_DEFAULT,
+                null
+            ),
             'feedback'     => new external_value(PARAM_TEXT, 'Teacher feedback', VALUE_DEFAULT, ''),
             'rubricscores' => new external_value(PARAM_RAW, 'JSON rubric criterion scores', VALUE_DEFAULT, ''),
         ]);
@@ -58,19 +63,19 @@ class save_grade extends external_api {
     /**
      * Save the grade and sync to the gradebook.
      *
-     * @param int    $cmid
-     * @param int    $recordid
-     * @param int    $fieldid
-     * @param float  $grade
-     * @param string $feedback
-     * @param string $rubricscores
+     * @param int        $cmid
+     * @param int        $recordid
+     * @param int        $fieldid
+     * @param float|null $grade     null clears the grade
+     * @param string     $feedback
+     * @param string     $rubricscores
      * @return array{success: bool, graded: int, total: int}
      */
     public static function execute(
         int $cmid,
         int $recordid,
         int $fieldid,
-        float $grade,
+        ?float $grade = null,
         string $feedback = '',
         string $rubricscores = ''
     ): array {
@@ -110,6 +115,13 @@ class save_grade extends external_api {
             'id, userid',
             MUST_EXIST
         );
+
+        if ($grade === null) {
+            $DB->delete_records('data_content', ['fieldid' => $fieldid, 'recordid' => $recordid]);
+            grade_manager::delete($cmid, $recordid, $fieldid);
+            $progress = grade_manager::progress($cm->instance);
+            return ['success' => true, 'graded' => $progress['graded'], 'total' => $progress['total']];
+        }
 
         $method = (string) ($field->param5 ?? grade_manager::METHOD_NUMERIC);
 

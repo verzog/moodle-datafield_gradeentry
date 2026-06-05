@@ -19,10 +19,10 @@
  *
  * @package    datafield_gradeentry
  * @copyright  2025 onwards, Australian developers
- * @license    https://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
+ * @license    {@link https://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later}
  */
 
-namespace datafield_gradeentry\tests;
+namespace datafield_gradeentry;
 
 /**
  * Unit tests for the grade entry field's form-submit hooks.
@@ -40,7 +40,7 @@ namespace datafield_gradeentry\tests;
  *
  * @covers \data_field_gradeentry
  */
-class field_test extends \advanced_testcase {
+final class field_test extends \advanced_testcase {
     /** @var \stdClass The Database activity used as the parent for each field. */
     private \stdClass $dataactivity;
 

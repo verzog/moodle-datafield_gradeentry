@@ -19,7 +19,7 @@
  *
  * @package    datafield_gradeentry
  * @copyright  2025 onwards, Australian developers
- * @license    https://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
+ * @license    {@link https://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later}
  */
 
 namespace datafield_gradeentry;
@@ -105,6 +105,51 @@ class grade_manager {
         }
 
         self::push_to_gradebook($dataid, $courseid, $studentid, $grade, $maxgrade, $scaleid);
+    }
+
+    /**
+     * Clear the grade for a single data record and remove it from the gradebook.
+     *
+     * @param int $cmid      Course-module ID of the database activity.
+     * @param int $recordid  Data record ID.
+     * @param int $fieldid   ID of the gradeentry field (needed to read scale/maxgrade config).
+     */
+    public static function delete(int $cmid, int $recordid, int $fieldid): void {
+        global $DB, $CFG;
+
+        [$dataid, $courseid, $studentid] = self::resolve_record_context($cmid, $recordid);
+
+        $existing = $DB->get_record('datafield_gradeentry_grades', ['dataid' => $dataid, 'recordid' => $recordid]);
+
+        if ($existing) {
+            // Reset only the grading fields; preserve submission_status and
+            // requireresubmission because this table is their only storage.
+            $existing->graderid       = null;
+            $existing->feedback       = '';
+            $existing->feedbackformat = FORMAT_MOODLE;
+            $existing->released       = 0;
+            $existing->rubric_scores  = null;
+            $existing->timemodified   = time();
+            $DB->update_record('datafield_gradeentry_grades', $existing);
+        }
+        // If no row exists there is nothing to clear; skip the DB write.
+
+        require_once($CFG->dirroot . '/mod/data/field/gradeentry/lib.php');
+
+        // Use the field's actual grading configuration so the gradebook item
+        // type (GRADE_TYPE_SCALE vs GRADE_TYPE_VALUE) is not altered by this call.
+        $field   = $DB->get_record('data_fields', ['id' => $fieldid, 'dataid' => $dataid], 'param2,param5,param6', MUST_EXIST);
+        $method  = (string) ($field->param5 ?? self::METHOD_NUMERIC);
+        $scaleid = ($method === self::METHOD_SCALE) ? (int) ($field->param6 ?? 0) : 0;
+        $maxgrade = ($scaleid > 0) ? 0.0 : (float) ($field->param2 !== '' && $field->param2 !== null ? $field->param2 : 100);
+
+        $data = $DB->get_record('data', ['id' => $dataid], 'id, name, course', MUST_EXIST);
+        $data->_maxgrade = $maxgrade;
+        $data->_scaleid  = $scaleid;
+
+        // Rawgrade = null removes the gradebook entry for this student.
+        $gradeobject = (object) ['userid' => $studentid, 'rawgrade' => null];
+        \datafield_gradeentry_grade_item_update($data, $gradeobject);
     }
 
     /**
