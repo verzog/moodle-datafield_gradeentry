@@ -24,6 +24,9 @@
 
 namespace datafield_gradeentry;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
+
 /**
  * Unit tests for the grade entry field's form-submit hooks.
  *
@@ -37,9 +40,8 @@ namespace datafield_gradeentry;
  * notemptyfield() is the input to the required-field check. Both must
  * therefore return false unconditionally so a Grade entry field cannot
  * block a student submission.
- *
- * @covers \data_field_gradeentry
  */
+#[CoversClass(\data_field_gradeentry::class)]
 final class field_test extends \advanced_testcase {
     /** @var \stdClass The Database activity used as the parent for each field. */
     private \stdClass $dataactivity;
@@ -120,9 +122,9 @@ final class field_test extends \advanced_testcase {
     /**
      * field_validation() returns false for every input mod_data could hand it.
      *
-     * @dataProvider permissive_validation_provider
      * @param mixed $value Submitted value (ignored by the hook).
      */
+    #[DataProvider('permissive_validation_provider')]
     public function test_field_validation_always_passes($value): void {
         $field = $this->make_field(['param1' => '0', 'param2' => '100']);
         $this->assertFalse($field->field_validation($value));

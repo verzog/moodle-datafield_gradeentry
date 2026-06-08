@@ -24,11 +24,12 @@
 
 namespace datafield_gradeentry;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+
 /**
  * Tests for grade storage, release, and progress counting in grade_manager.
- *
- * @covers \datafield_gradeentry\grade_manager
  */
+#[CoversClass(\datafield_gradeentry\grade_manager::class)]
 final class grade_manager_test extends \advanced_testcase {
     /** @var \stdClass Course. */
     private \stdClass $course;
