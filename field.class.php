@@ -346,7 +346,7 @@ class data_field_gradeentry extends data_field_base {
 
         if (empty($criteria)) {
             return '<div class="alert alert-warning small p-2">'
-                . 'Rubric criteria are not configured for this field.'
+                . s(get_string('rubricnotconfigured', 'datafield_gradeentry'))
                 . '</div>';
         }
 
@@ -592,7 +592,7 @@ class data_field_gradeentry extends data_field_base {
     public function display_search_field($value = '') {
         $fieldid = 'f_' . $this->field->id;
         $value   = s($value);
-        return '<label for="' . $fieldid . '">' . $this->field->name . '</label>'
+        return '<label for="' . $fieldid . '">' . s($this->field->name) . '</label>'
             . '<input type="number" step="any" class="form-control" '
             . 'name="' . $fieldid . '" id="' . $fieldid . '" value="' . $value . '" />';
     }

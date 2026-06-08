@@ -149,10 +149,10 @@ $allscales = array_merge($coursescales ?: [], $scales ?: []);
         </small>
         <div class="mt-2">
             <button type="button" class="btn btn-sm btn-outline-secondary" id="gradeentry-rubric-validate">
-                Validate JSON
+                <?php echo get_string('validatejson', 'datafield_gradeentry'); ?>
             </button>
             <button type="button" class="btn btn-sm btn-outline-secondary ms-1" id="gradeentry-rubric-example">
-                Load example
+                <?php echo get_string('loadexample', 'datafield_gradeentry'); ?>
             </button>
             <span id="gradeentry-rubric-msg" class="small ms-2"></span>
         </div>
