@@ -32,6 +32,12 @@ const DEBOUNCE_MS = 800;
 /** Map of recordid → pending debounce timer for grade inputs. */
 const debounceTimers = new Map();
 
+/** @type {Object.<string, string>} Submission-status badge labels, populated from lang on init. */
+let statusLabels = {};
+
+/** @type {string} Template for the "N grades released" message, populated from lang on init. */
+let releasedCountStr = '{$a} grades released';
+
 /**
  * Initialise the inline grader on a Database activity browse page.
  *
@@ -46,7 +52,21 @@ export const init = (cmid, contextid) => { // eslint-disable-line no-unused-vars
         {key: 'gradingprogress', component: 'datafield_gradeentry'},
         {key: 'savingstatus',   component: 'datafield_gradeentry'},
         {key: 'errorsavestatus', component: 'datafield_gradeentry'},
-    ]).then(([savingStr, gradedStr, errorStr, progressStr, savingStatusStr, errorStatusStr]) => { // eslint-disable-line
+        {key: 'submissionnotsubmitted', component: 'datafield_gradeentry'},
+        {key: 'submissiondraft', component: 'datafield_gradeentry'},
+        {key: 'submissionsubmitted', component: 'datafield_gradeentry'},
+        {key: 'submissionresubmit', component: 'datafield_gradeentry'},
+        {key: 'releasedcount',  component: 'datafield_gradeentry'},
+    ]).then((strings) => {
+        const [savingStr, gradedStr, errorStr, , savingStatusStr, errorStatusStr] = strings;
+        statusLabels = {
+            notsubmitted: strings[6],
+            draft:        strings[7],
+            submitted:    strings[8],
+            resubmit:     strings[9],
+        };
+        releasedCountStr = strings[10];
+
         wireGradeInputs(cmid, savingStr, gradedStr, errorStr);
         wireFeedbackAreas(cmid, savingStr, gradedStr, errorStr);
         wireReleaseControls(cmid);
@@ -154,7 +174,7 @@ const wireReleaseAllButton = (cmid) => {
                 const progressText = document.getElementById('datafield-gradeentry-progress-text');
                 if (progressText) {
                     const original = progressText.textContent;
-                    progressText.textContent = result.released + ' grades released';
+                    progressText.textContent = releasedCountStr.replace('{$a}', result.released);
                     setTimeout(() => {
                         progressText.textContent = original;
                     }, 3000);
@@ -374,20 +394,12 @@ const updateProgressBar = (graded, total) => {
     }
 };
 
-/** Status badge text lookup keyed by status string. */
-const STATUS_LABELS = {
-    notsubmitted: 'Not submitted',
-    draft:        'Draft',
-    submitted:    'Submitted for grading',
-    resubmit:     'Resubmission required',
-};
-
 const updateSubmissionBadge = (recordid, status) => {
     const badge = getSubmissionBadge(recordid);
     if (!badge) {
         return;
     }
-    badge.textContent = STATUS_LABELS[status] || status;
+    badge.textContent = statusLabels[status] || status;
 
     // Swap badge colour class.
     badge.classList.remove('text-bg-secondary', 'text-bg-warning', 'text-bg-success', 'text-bg-danger');

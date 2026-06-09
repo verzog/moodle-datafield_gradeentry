@@ -2,6 +2,8 @@
 
 A custom Database activity field type that allows teachers to collect numeric grade values from students, with configurable minimum/maximum bounds, decimal precision, and optional percentage display.
 
+**Compatibility:** Moodle 5.0 – 5.2 · PHP 8.2 – 8.4 · maturity: beta.
+
 ## Requirements
 
 - Moodle 5.0 or later
