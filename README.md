@@ -23,10 +23,6 @@ The plugin can be also installed by putting the contents of this directory to
 
 Afterwards, log in to your Moodle site as an admin and go to *Site administration > Notifications* to trigger the installation.
 
-## Upgrading from a previous version that used local_datagrading
-
-If your site previously had both `datafield_gradeentry` and the companion `local_datagrading` plugin installed, the upgrade automatically migrates grade data, gradebook items and role overrides to the merged plugin. After the upgrade completes successfully, uninstall the now-redundant `local_datagrading` plugin from *Site administration > Plugins > Plugins overview*; Moodle will drop its tables on uninstall.
-
 ## Configuration
 
 After adding the field to a database activity, you can configure:
@@ -40,9 +36,18 @@ After adding the field to a database activity, you can configure:
 
 No third-party libraries are bundled with this plugin.
 
+## Limitations
+
+This field type is designed for **one Grade entry field per Database activity**.
+The activity's gradebook item and the maximum-grade lookup are keyed on the
+parent Database activity (`mod/data`, instance id, item number 0), so adding a
+second Grade entry field to the same Database activity would have both fields
+share — and overwrite — the same single gradebook item. If you need more than
+one graded value, use separate Database activities.
+
 ## License
 
-2025 onwards, Australian developers
+2025 onwards, Vernon Spain/Educheckout
 
 This program is free software: you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free Software

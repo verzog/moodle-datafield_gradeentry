@@ -18,8 +18,8 @@
  * Grade entry field class for the Moodle Database activity.
  *
  * @package    datafield_gradeentry
- * @copyright  2025 onwards, Australian developers
- * @license    {@link https://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later}
+ * @copyright  2025 onwards, Vernon Spain/Educheckout
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 use datafield_gradeentry\grade_manager;
@@ -31,6 +31,13 @@ use datafield_gradeentry\grade_manager;
  * see their released grade and feedback. Grades sync to the Moodle gradebook
  * via this plugin's grade_manager, which pushes a grade_item the first time
  * a teacher saves a grade.
+ *
+ * Known limitation: only one Grade entry field is supported per Database
+ * activity. The gradebook item and the maximum-grade lookup are keyed on the
+ * parent Database activity (itemtype 'mod', module 'data', item number 0), so
+ * a second Grade entry field on the same activity would share and overwrite
+ * the same single gradebook item. Use separate Database activities for
+ * multiple graded values.
  *
  * Field parameter slots:
  *  param1 - Minimum grade (numeric)
@@ -311,7 +318,7 @@ class data_field_gradeentry extends data_field_base {
         $html .= '>';
         $html .= '<option value="">— ' . get_string('grade', 'datafield_gradeentry') . ' —</option>';
         foreach ($items as $idx => $item) {
-            $value    = $idx + 1; // 1-based.
+            $value    = $idx + 1; // Store as a 1-based index.
             $selected = ($current === $value) ? ' selected' : '';
             $html .= '<option value="' . $value . '"' . $selected . '>' . s($item) . '</option>';
         }
@@ -575,7 +582,10 @@ class data_field_gradeentry extends data_field_base {
         }
 
         if ($feedback !== '') {
-            $html .= '<p class="mt-1 text-muted small">' . format_text($feedback, FORMAT_MOODLE) . '</p>';
+            $context = \context_module::instance($this->cm->id);
+            $html .= '<p class="mt-1 text-muted small">'
+                . format_text($feedback, FORMAT_MOODLE, ['context' => $context])
+                . '</p>';
         }
 
         $html .= '</div>';
@@ -659,7 +669,7 @@ class data_field_gradeentry extends data_field_base {
      * @return bool
      */
     public function update_content($recordid, $value, $name = '') {
-        global $DB, $USER;
+        global $DB;
 
         $strvalue = (string) $value;
 

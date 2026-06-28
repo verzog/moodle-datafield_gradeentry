@@ -18,8 +18,8 @@
  * Language strings for the datafield_gradeentry plugin.
  *
  * @package    datafield_gradeentry
- * @copyright  2025 onwards, Australian developers
- * @license    {@link https://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later}
+ * @copyright  2025 onwards, Vernon Spain/Educheckout
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 $string['awaitinggrade'] = 'Your teacher will enter a grade for this entry.';

@@ -17,14 +17,14 @@
 /**
  * Plugin library functions for datafield_gradeentry.
  *
- * The page-footer markup that this plugin used to emit via the legacy
- * local_datagrading_before_footer() callback is now produced by the
+ * The grading progress bar and release controls are injected into Database
+ * activity pages by the
  * \datafield_gradeentry\hook_callbacks::before_footer_html_generation()
  * hook callback (see db/hooks.php).
  *
  * @package    datafield_gradeentry
- * @copyright  2025 onwards, Australian developers
- * @license    {@link https://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later}
+ * @copyright  2025 onwards, Vernon Spain/Educheckout
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 /**

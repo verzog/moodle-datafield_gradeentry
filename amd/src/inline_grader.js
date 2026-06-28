@@ -18,8 +18,8 @@
  * submission status buttons, require-resubmission checkboxes, and rubric panels.
  *
  * @module     datafield_gradeentry/inline_grader
- * @copyright  2025 onwards, Australian developers
- * @license    https://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
+ * @copyright  2025 onwards, Vernon Spain/Educheckout
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 import Ajax from 'core/ajax';
