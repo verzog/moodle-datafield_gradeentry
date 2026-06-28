@@ -1,8 +1,31 @@
 # Grade Entry field for Moodle Database activity
 
-A custom Database activity field type that allows teachers to collect numeric grade values from students, with configurable minimum/maximum bounds, decimal precision, and optional percentage display.
+A Database activity (`mod_data`) field type that turns a database into a
+lightweight, gradable activity. Teachers grade each student entry directly in
+the browse view through an inline panel, and released grades flow automatically
+to the Moodle gradebook.
 
 **Compatibility:** Moodle 5.0 – 5.2 · PHP 8.2 – 8.4 · maturity: beta.
+
+## Features
+
+- **Three grading methods:**
+  - *Numeric* — score with configurable minimum/maximum bounds, decimal
+    precision, and optional percentage display.
+  - *Scale* — grade using any standard Moodle scale.
+  - *Rubric* — define criteria and scored levels as JSON; the panel totals the
+    score automatically and students see a per-criterion breakdown.
+- **Inline grading** in the browse view with autosave — no separate page.
+- **Per-entry feedback** from the teacher.
+- **Grade release** — release grades to students individually or all at once, or
+  hold them back until you are ready.
+- **Grading progress** indicator (graded / total).
+- **Submission workflow** — students save as draft or submit for grading;
+  teachers can flag an entry as requiring resubmission.
+- **Gradebook synchronisation** — released grades are pushed to the gradebook as
+  the activity's grade item (value or scale).
+- **Privacy API** support (export and deletion) for both the grade value and the
+  grade metadata (feedback, grader, release state, submission status).
 
 ## Requirements
 
@@ -25,12 +48,30 @@ Afterwards, log in to your Moodle site as an admin and go to *Site administratio
 
 ## Configuration
 
-After adding the field to a database activity, you can configure:
+When adding the field to a Database activity, first choose a **grading method**
+(numeric, scale, or rubric). The available options depend on the method:
+
+**Numeric**
 
 - **Minimum grade** — lowest acceptable value (leave blank for no minimum)
 - **Maximum grade** — highest acceptable value (leave blank for no maximum)
 - **Decimal places** — number of decimal places shown in browse view (default 2)
 - **Show as percentage** — display the value with its percentage of the maximum grade
+
+**Scale**
+
+- **Scale** — the Moodle scale to grade against (its items appear as a dropdown
+  for teachers)
+
+**Rubric**
+
+- **Rubric criteria** — a JSON array of criteria, each with a name and an array of
+  levels (`score` + `desc`). The grading panel sums the selected level scores and
+  records a per-criterion breakdown.
+
+Grading itself, feedback, grade release, and the draft/submit/resubmission
+workflow all happen inline in the browse view once entries exist — no extra
+configuration required.
 
 ## Third-party libraries
 
