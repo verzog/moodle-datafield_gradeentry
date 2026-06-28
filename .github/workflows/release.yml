@@ -1,0 +1,36 @@
+name: Release
+
+# Build the installable plugin ZIP and publish a GitHub Release whenever a
+# version tag (e.g. v1.0.0-beta) is pushed. The archive uses the gradeentry/
+# prefix so it extracts to the Frankenstyle subplugin directory name expected
+# by Moodle (mod/data/field/gradeentry) and the Plugins directory.
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+
+      - name: Build plugin ZIP
+        run: |
+          ZIP="datafield_gradeentry-${GITHUB_REF_NAME}.zip"
+          git archive --format=zip --prefix=gradeentry/ -o "$ZIP" "$GITHUB_REF_NAME"
+          echo "ZIP=$ZIP" >> "$GITHUB_ENV"
+          unzip -l "$ZIP" | head -20
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "datafield_gradeentry $GITHUB_REF_NAME" \
+            --notes "Automated release build. See CHANGES.md for the changelog." \
+            "$ZIP"
