@@ -26,38 +26,58 @@ jobs:
   package:
     runs-on: ubuntu-24.04
     steps:
-      - name: Resolve tag
+      - name: Resolve and validate tag
         id: ref
+        env:
+          # Pass event data through env, never inline into the script body, so a
+          # crafted dispatch input cannot be evaluated by the shell.
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+          PUSH_TAG: ${{ github.ref_name }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "tag=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            TAG="$INPUT_TAG"
           else
-            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+            TAG="$PUSH_TAG"
           fi
+          # Only accept version tags (vMAJOR.MINOR.PATCH with an optional
+          # suffix). This rejects branch names, commit SHAs, and any value
+          # containing shell metacharacters.
+          if ! printf '%s' "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$'; then
+            echo "Refusing to package invalid tag: '$TAG'" >&2
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
       - name: Check out repository code
         uses: actions/checkout@v4
         with:
-          ref: ${{ steps.ref.outputs.tag }}
+          ref: refs/tags/${{ steps.ref.outputs.tag }}
           fetch-depth: 0
 
       - name: Build plugin ZIP
+        env:
+          TAG: ${{ steps.ref.outputs.tag }}
         run: |
-          TAG="${{ steps.ref.outputs.tag }}"
+          # Confirm the resolved ref is genuinely a tag object before packaging.
+          git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null
           ZIP="datafield_gradeentry-${TAG}.zip"
-          git archive --format=zip --prefix=gradeentry/ -o "$ZIP" "$TAG"
+          git archive --format=zip --prefix=gradeentry/ -o "$ZIP" "refs/tags/${TAG}"
           echo "ZIP=$ZIP" >> "$GITHUB_ENV"
           unzip -l "$ZIP" | head -20
 
       - name: Publish ZIP to release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.ref.outputs.tag }}
         run: |
-          TAG="${{ steps.ref.outputs.tag }}"
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$ZIP" --clobber
           else
-            gh release create "$TAG" \
+            # --verify-tag refuses to create a release if the tag does not
+            # already exist, so a mistyped dispatch can never publish a new
+            # tag pointing at the wrong commit.
+            gh release create "$TAG" --verify-tag \
               --title "datafield_gradeentry $TAG" \
               --notes "Automated release build. See CHANGES.md for the changelog." \
               "$ZIP"
