@@ -18,13 +18,13 @@
  * Plugin version and dependency metadata for datafield_gradeentry.
  *
  * @package    datafield_gradeentry
- * @copyright  2025 onwards, Australian developers
- * @license    {@link https://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later}
+ * @copyright  2025 onwards, Vernon Spain/Educheckout
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->version    = 2026060800;
+$plugin->version    = 2026062800;
 $plugin->requires   = 2025041400;
 $plugin->component  = 'datafield_gradeentry';
 $plugin->maturity   = MATURITY_BETA;

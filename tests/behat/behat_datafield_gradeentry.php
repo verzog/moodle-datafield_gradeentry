@@ -18,8 +18,8 @@
  * Behat step definitions for datafield_gradeentry.
  *
  * @package    datafield_gradeentry
- * @copyright  2025 onwards, Australian developers
- * @license    {@link https://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later}
+ * @copyright  2025 onwards, Vernon Spain/Educheckout
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 require_once(__DIR__ . '/../../../../../../lib/behat/behat_base.php');

@@ -4,20 +4,31 @@ Feature: Grade entry field in database activity
   I want to add a grade entry field to a Database activity
   So that I can record numeric grades against student entries
 
-  Scenario: A grade entry field can be created on a Database activity
+  Background:
     Given the following "courses" exist:
       | fullname    | shortname |
       | Test Course | TC101     |
     And the following "users" exist:
       | username | firstname | lastname |
       | teacher1 | Teacher   | One      |
+      | student1 | Student   | One      |
     And the following "course enrolments" exist:
       | user     | course | role           |
       | teacher1 | TC101  | editingteacher |
+      | student1 | TC101  | student        |
     And the following "activities" exist:
       | activity | name         | course |
       | data     | Grade Record | TC101  |
-    And the database "Grade Record" has a "Grade entry" field named "Assignment grade" with min "0" and max "100"
+
+  Scenario: A grade entry field can be created on a Database activity
+    Given the database "Grade Record" has a "Grade entry" field named "Assignment grade" with min "0" and max "100"
+    When I log in as "teacher1"
+    And I am on "Test Course" course homepage
+    And I follow "Grade Record"
+    Then I should see "Grade Record"
+
+  Scenario: A grade entry field with percentage display can be created
+    Given the database "Grade Record" has a "Grade entry" field named "Assignment grade" with min "0", max "100", and percentage display enabled
     When I log in as "teacher1"
     And I am on "Test Course" course homepage
     And I follow "Grade Record"
