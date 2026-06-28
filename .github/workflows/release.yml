@@ -1,13 +1,23 @@
 name: Release
 
-# Build the installable plugin ZIP and publish a GitHub Release whenever a
-# version tag (e.g. v1.0.0-beta) is pushed. The archive uses the gradeentry/
-# prefix so it extracts to the Frankenstyle subplugin directory name expected
-# by Moodle (mod/data/field/gradeentry) and the Plugins directory.
+# Build the installable plugin ZIP and attach it to the GitHub Release whenever
+# a version tag (e.g. v1.0.0-beta) is pushed. The archive uses the gradeentry/
+# prefix so it extracts to the Frankenstyle subplugin directory name expected by
+# Moodle (mod/data/field/gradeentry) and the Plugins directory.
+#
+# The publish step is idempotent: if a release for the tag already exists (for
+# example, one created through the GitHub UI), the ZIP is uploaded to it;
+# otherwise the release is created. The workflow can also be run manually
+# (workflow_dispatch) against an existing tag to (re)attach the ZIP.
 on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to package (e.g. v1.0.0-beta)'
+        required: true
 
 permissions:
   contents: write
@@ -16,21 +26,59 @@ jobs:
   package:
     runs-on: ubuntu-24.04
     steps:
+      - name: Resolve and validate tag
+        id: ref
+        env:
+          # Pass event data through env, never inline into the script body, so a
+          # crafted dispatch input cannot be evaluated by the shell.
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+          PUSH_TAG: ${{ github.ref_name }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            TAG="$INPUT_TAG"
+          else
+            TAG="$PUSH_TAG"
+          fi
+          # Only accept version tags (vMAJOR.MINOR.PATCH with an optional
+          # suffix). This rejects branch names, commit SHAs, and any value
+          # containing shell metacharacters.
+          if ! printf '%s' "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$'; then
+            echo "Refusing to package invalid tag: '$TAG'" >&2
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
       - name: Check out repository code
         uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ steps.ref.outputs.tag }}
+          fetch-depth: 0
 
       - name: Build plugin ZIP
+        env:
+          TAG: ${{ steps.ref.outputs.tag }}
         run: |
-          ZIP="datafield_gradeentry-${GITHUB_REF_NAME}.zip"
-          git archive --format=zip --prefix=gradeentry/ -o "$ZIP" "$GITHUB_REF_NAME"
+          # Confirm the resolved ref is genuinely a tag object before packaging.
+          git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null
+          ZIP="datafield_gradeentry-${TAG}.zip"
+          git archive --format=zip --prefix=gradeentry/ -o "$ZIP" "refs/tags/${TAG}"
           echo "ZIP=$ZIP" >> "$GITHUB_ENV"
           unzip -l "$ZIP" | head -20
 
-      - name: Create GitHub release
+      - name: Publish ZIP to release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.ref.outputs.tag }}
         run: |
-          gh release create "$GITHUB_REF_NAME" \
-            --title "datafield_gradeentry $GITHUB_REF_NAME" \
-            --notes "Automated release build. See CHANGES.md for the changelog." \
-            "$ZIP"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$ZIP" --clobber
+          else
+            # --verify-tag refuses to create a release if the tag does not
+            # already exist, so a mistyped dispatch can never publish a new
+            # tag pointing at the wrong commit.
+            gh release create "$TAG" --verify-tag \
+              --title "datafield_gradeentry $TAG" \
+              --notes "Automated release build. See CHANGES.md for the changelog." \
+              "$ZIP"
+          fi
