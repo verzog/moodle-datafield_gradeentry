@@ -18,8 +18,11 @@ Initial public release.
 - Student submission workflow: save as draft, submit for grading, and a
   teacher "require resubmission" action.
 - Automatic synchronisation of released grades to the Moodle gradebook.
+- Grades and grading metadata are stored in the Database activity's content
+  record (`data_content`), so they are included in course backup, restore and
+  copy without a datafield backup subplugin (which mod_data does not support).
 - Privacy API provider covering both the grade value and the grade metadata
-  (feedback, grader, release state, submission status).
+  (feedback, release state, submission status).
 
 ### Compatibility
 - Moodle 5.0 or later.

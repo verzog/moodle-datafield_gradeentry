@@ -28,6 +28,9 @@ use PHPUnit\Framework\Attributes\CoversClass;
 
 /**
  * Tests for grade storage, release, and progress counting in grade_manager.
+ *
+ * Grade metadata is stored in data_content.content1 (JSON) alongside the grade
+ * value in data_content.content, so these tests seed and assert on that table.
  */
 #[CoversClass(\datafield_gradeentry\grade_manager::class)]
 final class grade_manager_test extends \advanced_testcase {
@@ -46,8 +49,11 @@ final class grade_manager_test extends \advanced_testcase {
     /** @var \stdClass Student user. */
     private \stdClass $student;
 
+    /** @var int The gradeentry field ID. */
+    private int $fieldid;
+
     /**
-     * Create course, users, enrolments, and a database activity before each test.
+     * Create course, users, enrolments, a database activity and a gradeentry field.
      */
     protected function setUp(): void {
         parent::setUp();
@@ -64,6 +70,33 @@ final class grade_manager_test extends \advanced_testcase {
 
         $this->data = $generator->create_module('data', ['course' => $this->course->id]);
         $this->cm = get_coursemodule_from_instance('data', $this->data->id, $this->course->id);
+        $this->fieldid = $this->create_field();
+    }
+
+    /**
+     * Insert a gradeentry field on the Database activity.
+     *
+     * @return int  New field ID.
+     */
+    private function create_field(): int {
+        global $DB;
+        return (int) $DB->insert_record('data_fields', (object) [
+            'dataid'      => $this->data->id,
+            'type'        => 'gradeentry',
+            'name'        => 'Grade',
+            'description' => '',
+            'required'    => 0,
+            'param1'      => '0',
+            'param2'      => '100',
+            'param3'      => '2',
+            'param4'      => '',
+            'param5'      => '',
+            'param6'      => '',
+            'param7'      => '',
+            'param8'      => '',
+            'param9'      => '',
+            'param10'     => '',
+        ]);
     }
 
     /**
@@ -74,21 +107,47 @@ final class grade_manager_test extends \advanced_testcase {
      */
     private function create_record(int $userid): int {
         global $DB;
-        return $DB->insert_record('data_records', (object) [
-            'userid' => $userid,
-            'dataid' => $this->data->id,
-            'groupid' => 0,
-            'timecreated' => time(),
+        return (int) $DB->insert_record('data_records', (object) [
+            'userid'       => $userid,
+            'dataid'       => $this->data->id,
+            'groupid'      => 0,
+            'timecreated'  => time(),
             'timemodified' => time(),
-            'approved' => 1,
+            'approved'     => 1,
         ]);
+    }
+
+    /**
+     * Create a data record plus a graded content1 metadata blob.
+     *
+     * @param  int $userid    The student user ID.
+     * @param  int $released  Released flag to store (0 or 1).
+     * @return int  New record ID.
+     */
+    private function create_graded_record(int $userid, int $released = 0): int {
+        global $DB;
+        $rid = $this->create_record($userid);
+        $meta = array_merge(grade_manager::metadata_defaults(), [
+            'graded'            => 1,
+            'released'          => $released,
+            'submission_status' => grade_manager::STATUS_SUBMITTED,
+            'timecreated'       => time(),
+            'timemodified'      => time(),
+        ]);
+        $DB->insert_record('data_content', (object) [
+            'fieldid'  => $this->fieldid,
+            'recordid' => $rid,
+            'content'  => 75,
+            'content1' => json_encode($meta),
+        ]);
+        return $rid;
     }
 
     /**
      * Progress returns zero counts when there are no entries.
      */
     public function test_progress_returns_zero_when_no_entries(): void {
-        $result = \datafield_gradeentry\grade_manager::progress($this->data->id);
+        $result = grade_manager::progress($this->data->id);
         $this->assertSame(0, $result['graded']);
         $this->assertSame(0, $result['total']);
     }
@@ -97,79 +156,59 @@ final class grade_manager_test extends \advanced_testcase {
      * Progress correctly counts total entries and graded entries separately.
      */
     public function test_progress_counts_entries_and_graded(): void {
-        global $DB;
-
-        $rid1 = $this->create_record($this->student->id);
+        $this->create_graded_record($this->student->id);
         $this->create_record($this->student->id);
 
-        $DB->insert_record('datafield_gradeentry_grades', (object) [
-            'dataid' => $this->data->id,
-            'recordid' => $rid1,
-            'userid' => $this->student->id,
-            'graderid' => $this->teacher->id,
-            'feedback' => '',
-            'feedbackformat' => FORMAT_MOODLE,
-            'released' => 0,
-            'timecreated' => time(),
-            'timemodified' => time(),
-        ]);
-
-        $result = \datafield_gradeentry\grade_manager::progress($this->data->id);
+        $result = grade_manager::progress($this->data->id);
         $this->assertSame(2, $result['total']);
         $this->assertSame(1, $result['graded']);
     }
 
     /**
-     * Release marks the specified entry as released in the database.
+     * Release marks the specified entry as released in content1.
      */
     public function test_release_marks_entries_released(): void {
-        global $DB;
+        $rid = $this->create_graded_record($this->student->id, 0);
 
-        $rid = $this->create_record($this->student->id);
-        $DB->insert_record('datafield_gradeentry_grades', (object) [
-            'dataid' => $this->data->id,
-            'recordid' => $rid,
-            'userid' => $this->student->id,
-            'graderid' => $this->teacher->id,
-            'feedback' => '',
-            'feedbackformat' => FORMAT_MOODLE,
-            'released' => 0,
-            'timecreated' => time(),
-            'timemodified' => time(),
-        ]);
+        grade_manager::release($this->data->id, [$rid]);
 
-        \datafield_gradeentry\grade_manager::release($this->data->id, [$rid]);
-
-        $this->assertEquals(1, $DB->get_field('datafield_gradeentry_grades', 'released', ['recordid' => $rid]));
+        $meta = grade_manager::get_metadata($this->fieldid, $rid);
+        $this->assertSame(1, (int) $meta['released']);
     }
 
     /**
      * Releasing all entries marks every graded entry as released.
      */
     public function test_release_all_marks_all_graded_entries(): void {
-        global $DB;
-
+        $rids = [];
         for ($i = 0; $i < 3; $i++) {
-            $rid = $this->create_record($this->student->id);
-            $DB->insert_record('datafield_gradeentry_grades', (object) [
-                'dataid' => $this->data->id,
-                'recordid' => $rid,
-                'userid' => $this->student->id,
-                'graderid' => $this->teacher->id,
-                'feedback' => '',
-                'feedbackformat' => FORMAT_MOODLE,
-                'released' => 0,
-                'timecreated' => time(),
-                'timemodified' => time(),
-            ]);
+            $rids[] = $this->create_graded_record($this->student->id, 0);
         }
 
-        \datafield_gradeentry\grade_manager::release($this->data->id);
+        $count = grade_manager::release($this->data->id);
 
-        $count = $DB->count_records(
-            'datafield_gradeentry_grades',
-            ['dataid' => $this->data->id, 'released' => 1]
-        );
         $this->assertSame(3, $count);
+        foreach ($rids as $rid) {
+            $meta = grade_manager::get_metadata($this->fieldid, $rid);
+            $this->assertSame(1, (int) $meta['released']);
+        }
+    }
+
+    /**
+     * Updating submission status creates and persists the content1 blob.
+     */
+    public function test_update_submission_status_persists(): void {
+        $rid = $this->create_record($this->student->id);
+
+        grade_manager::update_submission_status(
+            (int) $this->data->id,
+            $rid,
+            (int) $this->student->id,
+            grade_manager::STATUS_DRAFT
+        );
+
+        $meta = grade_manager::get_metadata($this->fieldid, $rid);
+        $this->assertSame(grade_manager::STATUS_DRAFT, $meta['submission_status']);
+        $this->assertTrue(grade_manager::has_metadata($this->fieldid, $rid));
     }
 }

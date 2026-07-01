@@ -54,16 +54,12 @@ class hook_callbacks {
             return;
         }
 
-        $total = $DB->count_records('data_records', ['dataid' => $dataid]);
+        $progress = grade_manager::progress($dataid);
+        $total = $progress['total'];
         if ($total === 0) {
             return;
         }
-
-        $graded = $DB->count_records_select(
-            'datafield_gradeentry_grades',
-            'dataid = :dataid AND graderid IS NOT NULL',
-            ['dataid' => $dataid]
-        );
+        $graded = $progress['graded'];
 
         $PAGE->requires->js_call_amd('datafield_gradeentry/inline_grader', 'init', [
             $PAGE->cm->id,
