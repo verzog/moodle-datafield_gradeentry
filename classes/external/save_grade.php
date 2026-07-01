@@ -79,7 +79,7 @@ class save_grade extends external_api {
         string $feedback = '',
         string $rubricscores = ''
     ): array {
-        global $DB, $USER;
+        global $DB;
 
         [
             'cmid'         => $cmid,
@@ -192,7 +192,7 @@ class save_grade extends external_api {
 
         $scaleid = ($method === grade_manager::METHOD_SCALE) ? (int) ($field->param6 ?? 0) : 0;
 
-        grade_manager::save($cmid, $fieldid, $recordid, $grade, $feedback, (int) $USER->id, $rubricjson, $scaleid);
+        grade_manager::save($cmid, $fieldid, $recordid, $grade, $feedback, $rubricjson, $scaleid);
 
         $event = \datafield_gradeentry\event\entry_graded::create([
             'context'       => $context,

@@ -53,7 +53,7 @@ function xmldb_datafield_gradeentry_upgrade($oldversion) {
                 }
 
                 $meta = json_encode([
-                    'graderid'            => isset($row->graderid) && $row->graderid !== null ? (int) $row->graderid : null,
+                    'graded'              => isset($row->graderid) && $row->graderid !== null ? 1 : 0,
                     'feedback'            => isset($row->feedback) ? (string) $row->feedback : '',
                     'feedbackformat'      => isset($row->feedbackformat) ? (int) $row->feedbackformat : FORMAT_MOODLE,
                     'released'            => isset($row->released) ? (int) $row->released : 0,

@@ -58,7 +58,7 @@ class grade_manager {
      */
     public static function metadata_defaults(): array {
         return [
-            'graderid'            => null,
+            'graded'              => 0,
             'feedback'            => '',
             'feedbackformat'      => FORMAT_MOODLE,
             'released'            => 0,
@@ -174,7 +174,6 @@ class grade_manager {
      * @param int         $recordid     ID of the data_records row.
      * @param float       $grade        Numeric grade value (or scale index for scale grading).
      * @param string      $feedback     Teacher feedback (may be empty).
-     * @param int         $graderid     User ID of the teacher saving the grade.
      * @param string|null $rubricscores JSON-encoded per-criterion rubric scores (optional).
      * @param int         $scaleid      Moodle scale ID when grading method is scale; 0 otherwise.
      */
@@ -184,7 +183,6 @@ class grade_manager {
         int $recordid,
         float $grade,
         string $feedback,
-        int $graderid,
         ?string $rubricscores = null,
         int $scaleid = 0
     ): void {
@@ -194,7 +192,10 @@ class grade_manager {
         $isnew = !self::has_metadata($fieldid, $recordid);
         $meta = self::get_metadata($fieldid, $recordid);
 
-        $meta['graderid']            = $graderid;
+        // Mark as graded. The grader's identity is recorded on the gradebook
+        // item and the entry_graded event, not in content1 (mod_data would not
+        // remap a stored user id on restore to another site).
+        $meta['graded']              = 1;
         $meta['feedback']            = $feedback;
         $meta['feedbackformat']      = FORMAT_MOODLE;
         $meta['requireresubmission'] = 0;
@@ -238,7 +239,7 @@ class grade_manager {
             // Reset only the grading fields; preserve submission_status and
             // requireresubmission because content1 is their only storage.
             $meta = self::decode_metadata($content->content1);
-            $meta['graderid']       = null;
+            $meta['graded']         = 0;
             $meta['feedback']       = '';
             $meta['feedbackformat'] = FORMAT_MOODLE;
             $meta['released']       = 0;
@@ -301,12 +302,12 @@ class grade_manager {
             return $count;
         }
 
-        // Operate on every graded entry (one with a grader recorded in content1).
+        // Operate on every graded entry (graded flag set in content1).
         $rows = $DB->get_records('data_content', ['fieldid' => $fieldid], '', 'id, content1');
         $count = 0;
         foreach ($rows as $row) {
             $meta = self::decode_metadata($row->content1);
-            if ($meta['graderid'] === null) {
+            if (empty($meta['graded'])) {
                 continue;
             }
             $meta['released']     = $flag;
@@ -412,13 +413,15 @@ class grade_manager {
         $graded = 0;
         $fieldid = self::get_field_id($dataid);
         if ($fieldid !== null) {
-            $rows = $DB->get_records('data_content', ['fieldid' => $fieldid], '', 'id, content1');
-            foreach ($rows as $row) {
-                $meta = self::decode_metadata($row->content1);
-                if ($meta['graderid'] !== null) {
-                    $graded++;
-                }
-            }
+            // Count in SQL so browse-page renders do not scale with entry count.
+            // json_encode escapes quotes inside string values, so the literal
+            // '"graded":1' only ever matches the graded flag, never feedback text.
+            $like = $DB->sql_like('content1', ':needle');
+            $graded = (int) $DB->count_records_select(
+                'data_content',
+                "fieldid = :fieldid AND {$like}",
+                ['fieldid' => $fieldid, 'needle' => '%"graded":1%']
+            );
         }
 
         return ['graded' => $graded, 'total' => $total];

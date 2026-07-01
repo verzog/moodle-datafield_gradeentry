@@ -128,7 +128,7 @@ final class grade_manager_test extends \advanced_testcase {
         global $DB;
         $rid = $this->create_record($userid);
         $meta = array_merge(grade_manager::metadata_defaults(), [
-            'graderid'          => (int) $this->teacher->id,
+            'graded'            => 1,
             'released'          => $released,
             'submission_status' => grade_manager::STATUS_SUBMITTED,
             'timecreated'       => time(),

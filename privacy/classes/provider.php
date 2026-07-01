@@ -79,9 +79,6 @@ class provider implements
         $defaultvalue->feedback         = $meta['feedback'];
         $defaultvalue->released         = transform::yesno($meta['released']);
         $defaultvalue->submissionstatus = $meta['submission_status'];
-        if ($meta['graderid'] !== null) {
-            $defaultvalue->graderid = $meta['graderid'];
-        }
         if ($meta['rubric_scores'] !== null && $meta['rubric_scores'] !== '') {
             $defaultvalue->rubricscores = $meta['rubric_scores'];
         }
