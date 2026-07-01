@@ -27,6 +27,9 @@ to the Moodle gradebook.
   teachers can flag an entry as requiring resubmission.
 - **Gradebook synchronisation** — released grades are pushed to the gradebook as
   the activity's grade item (value or scale).
+- **Backup, restore and course copy** — grades and grading metadata are stored in
+  the Database activity's own content record, so they are included in standard
+  mod_data backup, restore and course-copy.
 - **Privacy API** support (export and deletion) for both the grade value and the
   grade metadata (feedback, grader, release state, submission status).
 

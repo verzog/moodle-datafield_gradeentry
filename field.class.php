@@ -73,22 +73,15 @@ class data_field_gradeentry extends data_field_base {
      * @return string  HTML fragment.
      */
     public function display_add_field($recordid = 0, $formdata = null) {
-        global $DB;
-
         // Determine the current status so we can pre-select the right radio.
         $currentstatus = grade_manager::STATUS_DRAFT;
-        if ($recordid > 0) {
-            $meta = $DB->get_record('datafield_gradeentry_grades', [
-                'dataid'   => $this->field->dataid,
-                'recordid' => $recordid,
-            ]);
-            if ($meta) {
-                $currentstatus = $meta->submission_status;
-                // If teacher requires resubmission, pre-select "submitted" so
-                // the student's next save counts as a fresh submission.
-                if ($meta->requireresubmission) {
-                    $currentstatus = grade_manager::STATUS_SUBMITTED;
-                }
+        if ($recordid > 0 && grade_manager::has_metadata((int) $this->field->id, $recordid)) {
+            $meta = grade_manager::get_metadata((int) $this->field->id, $recordid);
+            $currentstatus = $meta['submission_status'];
+            // If teacher requires resubmission, pre-select "submitted" so
+            // the student's next save counts as a fresh submission.
+            if ($meta['requireresubmission']) {
+                $currentstatus = grade_manager::STATUS_SUBMITTED;
             }
         }
 
@@ -145,16 +138,13 @@ class data_field_gradeentry extends data_field_base {
         $graderaw = ($content && $content->content !== null && $content->content !== '')
             ? (float) $content->content : null;
 
-        $meta = $DB->get_record('datafield_gradeentry_grades', [
-            'dataid'   => $this->field->dataid,
-            'recordid' => $recordid,
-        ]);
+        $meta = grade_manager::get_metadata((int) $this->field->id, $recordid);
 
-        $released   = $meta ? (bool) $meta->released : false;
-        $feedback   = $meta ? (string) $meta->feedback : '';
-        $status     = $meta ? (string) $meta->submission_status : grade_manager::STATUS_NOTSUBMITTED;
-        $resubmit   = $meta ? (bool) $meta->requireresubmission : false;
-        $rubricscores = ($meta && $meta->rubric_scores) ? $meta->rubric_scores : null;
+        $released     = (bool) $meta['released'];
+        $feedback     = (string) $meta['feedback'];
+        $status       = (string) $meta['submission_status'];
+        $resubmit     = (bool) $meta['requireresubmission'];
+        $rubricscores = $meta['rubric_scores'] ?: null;
 
         if ($isteacher) {
             return $this->render_teacher_panel($recordid, $graderaw, $feedback, $released, $status, $resubmit, $rubricscores);

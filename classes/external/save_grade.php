@@ -117,7 +117,8 @@ class save_grade extends external_api {
         );
 
         if ($grade === null) {
-            $DB->delete_records('data_content', ['fieldid' => $fieldid, 'recordid' => $recordid]);
+            // delete() clears the grade value and grading metadata but keeps
+            // the submission status stored in content1.
             grade_manager::delete($cmid, $recordid, $fieldid);
             $progress = grade_manager::progress($cm->instance);
             return ['success' => true, 'graded' => $progress['graded'], 'total' => $progress['total']];
@@ -191,7 +192,7 @@ class save_grade extends external_api {
 
         $scaleid = ($method === grade_manager::METHOD_SCALE) ? (int) ($field->param6 ?? 0) : 0;
 
-        grade_manager::save($cmid, $recordid, $grade, $feedback, (int) $USER->id, $rubricjson, $scaleid);
+        grade_manager::save($cmid, $fieldid, $recordid, $grade, $feedback, (int) $USER->id, $rubricjson, $scaleid);
 
         $event = \datafield_gradeentry\event\entry_graded::create([
             'context'       => $context,

@@ -32,43 +32,57 @@ function xmldb_datafield_gradeentry_upgrade($oldversion) {
     global $DB;
     $dbman = $DB->get_manager();
 
-    if ($oldversion < 2025120810) {
-        // Ensure the grade metadata table exists. install.xml covers fresh
-        // installs; this branch creates it for sites upgrading from a version
-        // that did not yet have it.
-        $table = new xmldb_table('datafield_gradeentry_grades');
-        if (!$dbman->table_exists($table)) {
-            $dbman->install_one_table_from_xmldb_file(
-                __DIR__ . '/install.xml',
-                'datafield_gradeentry_grades'
-            );
+    if ($oldversion < 2026070100) {
+        // Move grade metadata out of the plugin's own datafield_gradeentry_grades
+        // table and into data_content.content1 (as a JSON blob) so it is covered
+        // by mod_data's backup, restore and course-copy. The grade value itself
+        // already lives in data_content.content.
+        $oldtable = new xmldb_table('datafield_gradeentry_grades');
+        if ($dbman->table_exists($oldtable)) {
+            $rs = $DB->get_recordset('datafield_gradeentry_grades');
+            foreach ($rs as $row) {
+                // Resolve the gradeentry field for this activity (one per activity).
+                $fieldid = $DB->get_field(
+                    'data_fields',
+                    'id',
+                    ['dataid' => $row->dataid, 'type' => 'gradeentry'],
+                    IGNORE_MULTIPLE
+                );
+                if (!$fieldid) {
+                    continue;
+                }
+
+                $meta = json_encode([
+                    'graderid'            => isset($row->graderid) && $row->graderid !== null ? (int) $row->graderid : null,
+                    'feedback'            => isset($row->feedback) ? (string) $row->feedback : '',
+                    'feedbackformat'      => isset($row->feedbackformat) ? (int) $row->feedbackformat : FORMAT_MOODLE,
+                    'released'            => isset($row->released) ? (int) $row->released : 0,
+                    'submission_status'   => isset($row->submission_status) ? (string) $row->submission_status : 'notsubmitted',
+                    'requireresubmission' => isset($row->requireresubmission) ? (int) $row->requireresubmission : 0,
+                    'rubric_scores'       => $row->rubric_scores ?? null,
+                    'timecreated'         => isset($row->timecreated) ? (int) $row->timecreated : 0,
+                    'timemodified'        => isset($row->timemodified) ? (int) $row->timemodified : 0,
+                ]);
+
+                $content = $DB->get_record('data_content', ['fieldid' => $fieldid, 'recordid' => $row->recordid]);
+                if ($content) {
+                    $content->content1 = $meta;
+                    $DB->update_record('data_content', $content);
+                } else {
+                    $DB->insert_record('data_content', (object) [
+                        'fieldid'  => $fieldid,
+                        'recordid' => $row->recordid,
+                        'content'  => null,
+                        'content1' => $meta,
+                    ]);
+                }
+            }
+            $rs->close();
+
+            $dbman->drop_table($oldtable);
         }
 
-        upgrade_plugin_savepoint(true, 2025120810, 'datafield', 'gradeentry');
-    }
-
-    if ($oldversion < 2026010100) {
-        $table = new xmldb_table('datafield_gradeentry_grades');
-
-        // Add submission_status column.
-        $field = new xmldb_field('submission_status', XMLDB_TYPE_CHAR, '20', null, XMLDB_NOTNULL, null, 'notsubmitted');
-        if (!$dbman->field_exists($table, $field)) {
-            $dbman->add_field($table, $field);
-        }
-
-        // Add requireresubmission column.
-        $field = new xmldb_field('requireresubmission', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0');
-        if (!$dbman->field_exists($table, $field)) {
-            $dbman->add_field($table, $field);
-        }
-
-        // Add rubric_scores column.
-        $field = new xmldb_field('rubric_scores', XMLDB_TYPE_TEXT, null, null, null, null, null);
-        if (!$dbman->field_exists($table, $field)) {
-            $dbman->add_field($table, $field);
-        }
-
-        upgrade_plugin_savepoint(true, 2026010100, 'datafield', 'gradeentry');
+        upgrade_plugin_savepoint(true, 2026070100, 'datafield', 'gradeentry');
     }
 
     return true;

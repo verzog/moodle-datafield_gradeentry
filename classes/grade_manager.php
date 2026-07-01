@@ -17,6 +17,13 @@
 /**
  * Grade storage and gradebook synchronisation manager for datafield_gradeentry.
  *
+ * Grade metadata (feedback, grader, release state, submission status, rubric
+ * scores) is stored as a JSON blob in data_content.content1, alongside the
+ * grade value in data_content.content. Keeping everything in mod_data's own
+ * data_content table means the plugin's data is covered by mod_data's backup,
+ * restore and course-copy without a datafield backup subplugin (which mod_data
+ * does not support).
+ *
  * @package    datafield_gradeentry
  * @copyright  2025 onwards, Vernon Spain/Educheckout
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
@@ -45,13 +52,125 @@ class grade_manager {
     const METHOD_RUBRIC = 'rubric';
 
     /**
+     * Return the default grade-metadata array for an ungraded entry.
+     *
+     * @return array
+     */
+    public static function metadata_defaults(): array {
+        return [
+            'graderid'            => null,
+            'feedback'            => '',
+            'feedbackformat'      => FORMAT_MOODLE,
+            'released'            => 0,
+            'submission_status'   => self::STATUS_NOTSUBMITTED,
+            'requireresubmission' => 0,
+            'rubric_scores'       => null,
+            'timecreated'         => 0,
+            'timemodified'        => 0,
+        ];
+    }
+
+    /**
+     * Resolve the gradeentry field id for a Database activity.
+     *
+     * Only one Grade entry field per activity is supported, so the first match
+     * is returned.
+     *
+     * @param  int $dataid  Database activity ID.
+     * @return int|null  The field ID, or null if the activity has no gradeentry field.
+     */
+    public static function get_field_id(int $dataid): ?int {
+        global $DB;
+        $id = $DB->get_field(
+            'data_fields',
+            'id',
+            ['dataid' => $dataid, 'type' => 'gradeentry'],
+            IGNORE_MULTIPLE
+        );
+        return $id ? (int) $id : null;
+    }
+
+    /**
+     * Read the grade metadata for one entry from data_content.content1.
+     *
+     * @param  int $fieldid   Grade entry field ID.
+     * @param  int $recordid  Data record ID.
+     * @return array  Metadata array (defaults merged in for missing keys).
+     */
+    public static function get_metadata(int $fieldid, int $recordid): array {
+        global $DB;
+        $json = $DB->get_field('data_content', 'content1', ['fieldid' => $fieldid, 'recordid' => $recordid]);
+        return self::decode_metadata($json);
+    }
+
+    /**
+     * Decode a content1 JSON blob into a metadata array, applying defaults.
+     *
+     * @param  mixed $json  Raw content1 value (string, null, or false).
+     * @return array
+     */
+    private static function decode_metadata($json): array {
+        if ($json === false || $json === null || $json === '') {
+            return self::metadata_defaults();
+        }
+        $decoded = json_decode((string) $json, true);
+        if (!is_array($decoded)) {
+            return self::metadata_defaults();
+        }
+        return array_merge(self::metadata_defaults(), $decoded);
+    }
+
+    /**
+     * Return true when a metadata blob already exists for this entry.
+     *
+     * @param  int $fieldid   Grade entry field ID.
+     * @param  int $recordid  Data record ID.
+     * @return bool
+     */
+    public static function has_metadata(int $fieldid, int $recordid): bool {
+        global $DB;
+        $json = $DB->get_field('data_content', 'content1', ['fieldid' => $fieldid, 'recordid' => $recordid]);
+        return $json !== false && $json !== null && $json !== ''
+            && is_array(json_decode((string) $json, true));
+    }
+
+    /**
+     * Persist a metadata array into data_content.content1 for one entry.
+     *
+     * Creates the content row (with an empty grade value) when it does not
+     * yet exist, e.g. a student sets a draft status before being graded.
+     *
+     * @param int   $fieldid   Grade entry field ID.
+     * @param int   $recordid  Data record ID.
+     * @param array $meta       Metadata array to store.
+     */
+    private static function set_metadata(int $fieldid, int $recordid, array $meta): void {
+        global $DB;
+        $json = json_encode($meta);
+        $content = $DB->get_record('data_content', ['fieldid' => $fieldid, 'recordid' => $recordid]);
+        if ($content) {
+            $content->content1 = $json;
+            $DB->update_record('data_content', $content);
+        } else {
+            $DB->insert_record('data_content', (object) [
+                'fieldid'  => $fieldid,
+                'recordid' => $recordid,
+                'content'  => null,
+                'content1' => $json,
+            ]);
+        }
+    }
+
+    /**
      * Save a grade for one database entry and sync to the Moodle gradebook.
      *
-     * The grade value itself is already persisted in mdl_data_content by the
-     * calling web-service layer. This method writes the grade metadata row
-     * (feedback, released flag, grader) and fires the gradebook update.
+     * The grade value itself is already persisted in data_content.content by the
+     * calling web-service layer. This method writes the grade metadata blob
+     * (feedback, released flag, grader) into content1 and fires the gradebook
+     * update.
      *
      * @param int         $cmid         Course-module ID of the database activity.
+     * @param int         $fieldid      Grade entry field ID.
      * @param int         $recordid     ID of the data_records row.
      * @param float       $grade        Numeric grade value (or scale index for scale grading).
      * @param string      $feedback     Teacher feedback (may be empty).
@@ -61,6 +180,7 @@ class grade_manager {
      */
     public static function save(
         int $cmid,
+        int $fieldid,
         int $recordid,
         float $grade,
         string $feedback,
@@ -68,47 +188,36 @@ class grade_manager {
         ?string $rubricscores = null,
         int $scaleid = 0
     ): void {
-        global $DB;
-
         [$dataid, $courseid, $studentid, $maxgrade] = self::resolve_record_context($cmid, $recordid);
 
         $now = time();
+        $isnew = !self::has_metadata($fieldid, $recordid);
+        $meta = self::get_metadata($fieldid, $recordid);
 
-        $existing = $DB->get_record('datafield_gradeentry_grades', ['dataid' => $dataid, 'recordid' => $recordid]);
-
-        if ($existing) {
-            $existing->graderid           = $graderid;
-            $existing->feedback           = $feedback;
-            $existing->feedbackformat     = FORMAT_MOODLE;
-            $existing->requireresubmission = 0;
-            $existing->timemodified       = $now;
-            if ($rubricscores !== null) {
-                $existing->rubric_scores = $rubricscores;
-            }
-            $DB->update_record('datafield_gradeentry_grades', $existing);
-        } else {
-            $row = (object) [
-                'dataid'               => $dataid,
-                'recordid'             => $recordid,
-                'userid'               => $studentid,
-                'graderid'             => $graderid,
-                'feedback'             => $feedback,
-                'feedbackformat'       => FORMAT_MOODLE,
-                'released'             => 0,
-                'submission_status'    => self::STATUS_SUBMITTED,
-                'requireresubmission'  => 0,
-                'rubric_scores'        => $rubricscores,
-                'timecreated'          => $now,
-                'timemodified'         => $now,
-            ];
-            $DB->insert_record('datafield_gradeentry_grades', $row);
+        $meta['graderid']            = $graderid;
+        $meta['feedback']            = $feedback;
+        $meta['feedbackformat']      = FORMAT_MOODLE;
+        $meta['requireresubmission'] = 0;
+        $meta['timemodified']        = $now;
+        if ($rubricscores !== null) {
+            $meta['rubric_scores'] = $rubricscores;
         }
+        if ($isnew) {
+            $meta['released']          = 0;
+            $meta['submission_status'] = self::STATUS_SUBMITTED;
+            $meta['timecreated']       = $now;
+        }
+
+        self::set_metadata($fieldid, $recordid, $meta);
 
         self::push_to_gradebook($dataid, $courseid, $studentid, $grade, $maxgrade, $scaleid);
     }
 
     /**
      * Clear the grade for a single data record and remove it from the gradebook.
+     *
+     * The grade value in content is cleared but the content row is kept so the
+     * submission status and resubmission flag stored in content1 are preserved.
      *
      * @param int $cmid      Course-module ID of the database activity.
      * @param int $recordid  Data record ID.
@@ -119,20 +228,25 @@ class grade_manager {
 
         [$dataid, $courseid, $studentid] = self::resolve_record_context($cmid, $recordid);
 
-        $existing = $DB->get_record('datafield_gradeentry_grades', ['dataid' => $dataid, 'recordid' => $recordid]);
+        // Clear the grade value but keep the content row so the submission
+        // status stored in content1 survives.
+        $content = $DB->get_record('data_content', ['fieldid' => $fieldid, 'recordid' => $recordid]);
+        if ($content) {
+            $content->content = null;
+            $DB->update_record('data_content', $content);
 
-        if ($existing) {
             // Reset only the grading fields; preserve submission_status and
-            // requireresubmission because this table is their only storage.
-            $existing->graderid       = null;
-            $existing->feedback       = '';
-            $existing->feedbackformat = FORMAT_MOODLE;
-            $existing->released       = 0;
-            $existing->rubric_scores  = null;
-            $existing->timemodified   = time();
-            $DB->update_record('datafield_gradeentry_grades', $existing);
+            // requireresubmission because content1 is their only storage.
+            $meta = self::decode_metadata($content->content1);
+            $meta['graderid']       = null;
+            $meta['feedback']       = '';
+            $meta['feedbackformat'] = FORMAT_MOODLE;
+            $meta['released']       = 0;
+            $meta['rubric_scores']  = null;
+            $meta['timemodified']   = time();
+            $content->content1 = json_encode($meta);
+            $DB->update_record('data_content', $content);
         }
-        // If no row exists there is nothing to clear; skip the DB write.
 
         require_once($CFG->dirroot . '/mod/data/field/gradeentry/lib.php');
 
@@ -158,10 +272,15 @@ class grade_manager {
      * @param int        $dataid     Database activity ID.
      * @param int[]|null $recordids  Specific record IDs, or null to operate on all graded entries.
      * @param bool       $released   Target state - true to release to the student, false to unrelease.
-     * @return int  Number of rows matching $released after the operation.
+     * @return int  Number of entries updated to the target state.
      */
     public static function release(int $dataid, ?array $recordids = null, bool $released = true): int {
         global $DB;
+
+        $fieldid = self::get_field_id($dataid);
+        if ($fieldid === null) {
+            return 0;
+        }
 
         $now = time();
         $flag = $released ? 1 : 0;
@@ -169,35 +288,45 @@ class grade_manager {
         if ($recordids !== null) {
             $count = 0;
             foreach ($recordids as $rid) {
-                $count += (int) $DB->set_field(
-                    'datafield_gradeentry_grades',
-                    'released',
-                    $flag,
-                    ['dataid' => $dataid, 'recordid' => (int) $rid]
-                );
+                $rid = (int) $rid;
+                if (!self::has_metadata($fieldid, $rid)) {
+                    continue;
+                }
+                $meta = self::get_metadata($fieldid, $rid);
+                $meta['released']     = $flag;
+                $meta['timemodified'] = $now;
+                self::set_metadata($fieldid, $rid, $meta);
+                $count++;
             }
             return $count;
         }
 
-        $DB->execute(
-            'UPDATE {datafield_gradeentry_grades}
-                SET released = :flag, timemodified = :now
-              WHERE dataid = :dataid AND graderid IS NOT NULL',
-            ['flag' => $flag, 'now' => $now, 'dataid' => $dataid]
-        );
+        // Operate on every graded entry (one with a grader recorded in content1).
+        $rows = $DB->get_records('data_content', ['fieldid' => $fieldid], '', 'id, content1');
+        $count = 0;
+        foreach ($rows as $row) {
+            $meta = self::decode_metadata($row->content1);
+            if ($meta['graderid'] === null) {
+                continue;
+            }
+            $meta['released']     = $flag;
+            $meta['timemodified'] = $now;
+            $DB->set_field('data_content', 'content1', json_encode($meta), ['id' => $row->id]);
+            $count++;
+        }
 
-        return $DB->count_records('datafield_gradeentry_grades', ['dataid' => $dataid, 'released' => $flag]);
+        return $count;
     }
 
     /**
      * Update the submission status for a student's entry.
      *
-     * Creates the metadata row if it doesn't yet exist (e.g. student sets
+     * Creates the metadata blob if it doesn't yet exist (e.g. student sets
      * draft status before a teacher has graded).
      *
      * @param int    $dataid    Database activity ID.
      * @param int    $recordid  Data record ID.
-     * @param int    $userid    Student user ID.
+     * @param int    $userid    Student user ID (implied by the data record; kept for API compatibility).
      * @param string $status    One of the STATUS_* constants.
      */
     public static function update_submission_status(
@@ -206,46 +335,39 @@ class grade_manager {
         int $userid,
         string $status
     ): void {
-        global $DB;
+        unset($userid); // The owner is implied by the data record; not stored in content1.
 
         $allowed = [self::STATUS_NOTSUBMITTED, self::STATUS_DRAFT, self::STATUS_SUBMITTED, self::STATUS_RESUBMIT];
         if (!in_array($status, $allowed, true)) {
             throw new \coding_exception('Invalid submission status: ' . $status);
         }
 
-        $now = time();
-        $existing = $DB->get_record('datafield_gradeentry_grades', ['dataid' => $dataid, 'recordid' => $recordid]);
-
-        if ($existing) {
-            $existing->submission_status = $status;
-            // Clear resubmission flag when student resubmits.
-            if ($status === self::STATUS_SUBMITTED) {
-                $existing->requireresubmission = 0;
-            }
-            $existing->timemodified = $now;
-            $DB->update_record('datafield_gradeentry_grades', $existing);
-        } else {
-            $DB->insert_record('datafield_gradeentry_grades', (object) [
-                'dataid'               => $dataid,
-                'recordid'             => $recordid,
-                'userid'               => $userid,
-                'graderid'             => null,
-                'feedback'             => '',
-                'feedbackformat'       => FORMAT_MOODLE,
-                'released'             => 0,
-                'submission_status'    => $status,
-                'requireresubmission'  => 0,
-                'rubric_scores'        => null,
-                'timecreated'          => $now,
-                'timemodified'         => $now,
-            ]);
+        $fieldid = self::get_field_id($dataid);
+        if ($fieldid === null) {
+            throw new \coding_exception('No gradeentry field for database activity ' . $dataid);
         }
+
+        $now = time();
+        $isnew = !self::has_metadata($fieldid, $recordid);
+        $meta = self::get_metadata($fieldid, $recordid);
+
+        $meta['submission_status'] = $status;
+        // Clear resubmission flag when student resubmits.
+        if ($status === self::STATUS_SUBMITTED) {
+            $meta['requireresubmission'] = 0;
+        }
+        $meta['timemodified'] = $now;
+        if ($isnew) {
+            $meta['timecreated'] = $now;
+        }
+
+        self::set_metadata($fieldid, $recordid, $meta);
     }
 
     /**
      * Set or clear the "require resubmission" flag on an entry.
      *
-     * Creates the metadata row when it doesn't yet exist so that entries
+     * Creates the metadata blob when it doesn't yet exist so that entries
      * graded before the status feature was added are handled correctly.
      * When clearing the flag, resets submission_status to 'submitted' so
      * the badge and student view reflect the corrected state.
@@ -255,35 +377,25 @@ class grade_manager {
      * @param bool $require   True to require resubmission, false to clear.
      */
     public static function set_require_resubmission(int $dataid, int $recordid, bool $require): void {
-        global $DB;
+        $fieldid = self::get_field_id($dataid);
+        if ($fieldid === null) {
+            throw new \coding_exception('No gradeentry field for database activity ' . $dataid);
+        }
 
         $now = time();
-        $existing = $DB->get_record('datafield_gradeentry_grades', ['dataid' => $dataid, 'recordid' => $recordid]);
+        $isnew = !self::has_metadata($fieldid, $recordid);
+        $meta = self::get_metadata($fieldid, $recordid);
 
-        if ($existing) {
-            $existing->requireresubmission = $require ? 1 : 0;
-            $existing->submission_status = $require ? self::STATUS_RESUBMIT : self::STATUS_SUBMITTED;
-            $existing->timemodified = $now;
-            $DB->update_record('datafield_gradeentry_grades', $existing);
+        $meta['requireresubmission'] = $require ? 1 : 0;
+        if ($isnew) {
+            $meta['submission_status'] = $require ? self::STATUS_RESUBMIT : self::STATUS_NOTSUBMITTED;
+            $meta['timecreated'] = $now;
         } else {
-            // No metadata row yet (entry pre-dates the status feature). Look up
-            // the student from data_records so we can create the row correctly.
-            $record = $DB->get_record('data_records', ['id' => $recordid, 'dataid' => $dataid], 'userid', MUST_EXIST);
-            $DB->insert_record('datafield_gradeentry_grades', (object) [
-                'dataid' => $dataid,
-                'recordid' => $recordid,
-                'userid' => (int) $record->userid,
-                'graderid' => null,
-                'feedback' => '',
-                'feedbackformat' => FORMAT_MOODLE,
-                'released' => 0,
-                'submission_status' => $require ? self::STATUS_RESUBMIT : self::STATUS_NOTSUBMITTED,
-                'requireresubmission' => $require ? 1 : 0,
-                'rubric_scores' => null,
-                'timecreated' => $now,
-                'timemodified' => $now,
-            ]);
+            $meta['submission_status'] = $require ? self::STATUS_RESUBMIT : self::STATUS_SUBMITTED;
         }
+        $meta['timemodified'] = $now;
+
+        self::set_metadata($fieldid, $recordid, $meta);
     }
 
     /**
@@ -295,14 +407,21 @@ class grade_manager {
     public static function progress(int $dataid): array {
         global $DB;
 
-        $total = $DB->count_records('data_records', ['dataid' => $dataid]);
-        $graded = $DB->count_records_select(
-            'datafield_gradeentry_grades',
-            'dataid = :dataid AND graderid IS NOT NULL',
-            ['dataid' => $dataid]
-        );
+        $total = (int) $DB->count_records('data_records', ['dataid' => $dataid]);
 
-        return ['graded' => (int) $graded, 'total' => (int) $total];
+        $graded = 0;
+        $fieldid = self::get_field_id($dataid);
+        if ($fieldid !== null) {
+            $rows = $DB->get_records('data_content', ['fieldid' => $fieldid], '', 'id, content1');
+            foreach ($rows as $row) {
+                $meta = self::decode_metadata($row->content1);
+                if ($meta['graderid'] !== null) {
+                    $graded++;
+                }
+            }
+        }
+
+        return ['graded' => $graded, 'total' => $total];
     }
 
     /**
