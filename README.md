@@ -1,5 +1,8 @@
 # Grade Entry field for Moodle Database activity
 
+Inline grading for the Database activity: numeric, scale, or rubric grades with
+feedback, grade release, and gradebook sync.
+
 A Database activity (`mod_data`) field type that turns a database into a
 lightweight, gradable activity. Teachers grade each student entry directly in
 the browse view through an inline panel, and released grades flow automatically
