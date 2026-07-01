@@ -117,8 +117,8 @@ class save_grade extends external_api {
         );
 
         if ($grade === null) {
-            // delete() clears the grade value and grading metadata but keeps
-            // the submission status stored in content1.
+            // Clear the grade value and grading metadata but keep the
+            // submission status stored in content1 (handled by delete()).
             grade_manager::delete($cmid, $recordid, $fieldid);
             $progress = grade_manager::progress($cm->instance);
             return ['success' => true, 'graded' => $progress['graded'], 'total' => $progress['total']];
