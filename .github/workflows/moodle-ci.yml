@@ -35,7 +35,10 @@ jobs:
           MYSQL_COLLATION_SERVER: utf8mb4_unicode_ci
         ports:
           - 3306:3306
-        options: --health-cmd="mysqladmin ping" --health-interval 10s --health-timeout 5s --health-retries 3
+        # MariaDB 11.4 (used for the main leg) dropped the mysqladmin shim the
+        # 10.11 stable legs rely on, so use the image's own healthcheck.sh there
+        # and keep the proven mysqladmin ping on the stable legs.
+        options: --health-cmd="${{ matrix.moodle-branch == 'main' && 'healthcheck.sh --connect --innodb_initialized' || 'mysqladmin ping' }}" --health-interval 10s --health-timeout 5s --health-retries 3
 
     strategy:
       fail-fast: false
