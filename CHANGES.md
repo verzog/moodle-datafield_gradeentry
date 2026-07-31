@@ -3,6 +3,20 @@
 All notable changes to the Grade Entry field plugin (`datafield_gradeentry`)
 are documented in this file.
 
+## 1.0.0-beta.3 — 2026-07-31
+
+### Fixed
+- Privacy API provider is now discovered by Moodle. The provider class was
+  located at `privacy/classes/provider.php`, which the class autoloader never
+  loads, so the privacy subsystem saw no provider and reported the plugin as
+  missing a Privacy API implementation. The class has been moved to its correct
+  autoloader path, `classes/privacy/provider.php` (namespace unchanged), so
+  privacy metadata, export and deletion now work.
+
+### Added
+- PHPUnit coverage for the privacy provider: metadata description, export of
+  grading data, and the deletion no-op.
+
 ## 1.0.0-beta.2 — 2026-07-01
 
 ### Added

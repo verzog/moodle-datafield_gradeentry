@@ -9,9 +9,16 @@ jobs:
   test:
     runs-on: ubuntu-24.04
 
+    # Moodle's in-development main branch (5.3-dev) needs newer databases than
+    # the supported 5.0-5.2 branches (currently PostgreSQL 17 / MariaDB 11.4 vs
+    # 16 / 10.11), so the service images below are selected per branch. main is
+    # also kept advisory (continue-on-error) so any other churn on that unstable
+    # dev branch never blocks the supported legs.
+    continue-on-error: ${{ matrix.moodle-branch == 'main' }}
+
     services:
       postgres:
-        image: postgres:16.6
+        image: postgres:${{ matrix.moodle-branch == 'main' && '17' || '16.6' }}
         env:
           POSTGRES_USER: postgres
           POSTGRES_HOST_AUTH_METHOD: trust
@@ -20,7 +27,7 @@ jobs:
         options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 3
 
       mariadb:
-        image: mariadb:10.11
+        image: mariadb:${{ matrix.moodle-branch == 'main' && '11.4' || '10.11' }}
         env:
           MYSQL_USER: root
           MYSQL_ALLOW_EMPTY_PASSWORD: true
@@ -28,7 +35,10 @@ jobs:
           MYSQL_COLLATION_SERVER: utf8mb4_unicode_ci
         ports:
           - 3306:3306
-        options: --health-cmd="mysqladmin ping" --health-interval 10s --health-timeout 5s --health-retries 3
+        # MariaDB 11.4 (used for the main leg) dropped the mysqladmin shim the
+        # 10.11 stable legs rely on, so use the image's own healthcheck.sh there
+        # and keep the proven mysqladmin ping on the stable legs.
+        options: --health-cmd="${{ matrix.moodle-branch == 'main' && 'healthcheck.sh --connect --innodb_initialized' || 'mysqladmin ping' }}" --health-interval 10s --health-timeout 5s --health-retries 3
 
     strategy:
       fail-fast: false
@@ -64,6 +74,10 @@ jobs:
           # Retry the create-project + install up to 3 times with linear
           # backoff so a transient network/composer flake doesn't cascade
           # into "moodle-plugin-ci: command not found" on every later step.
+          # Each retry must also remove the moodle/ and moodledata/ trees a
+          # partial "install" leaves behind, otherwise the next attempt's
+          # "git clone ... moodle" aborts with "destination path already
+          # exists" and every retry fails for good.
           attempt=1
           until [ "$attempt" -gt 3 ]; do
             echo "::group::moodle-plugin-ci install attempt $attempt"
@@ -82,7 +96,7 @@ jobs:
             echo "Install attempt $attempt failed; retrying after $((attempt * 10))s."
             sleep $((attempt * 10))
             attempt=$((attempt + 1))
-            rm -rf ci
+            rm -rf ci moodle moodledata
           done
           echo "moodle-plugin-ci install failed after 3 attempts."
           exit 1
