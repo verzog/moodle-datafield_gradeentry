@@ -73,14 +73,25 @@ class provider implements
     public static function export_data_content($context, $recordobj, $fieldobj, $contentobj, $defaultvalue) {
         $meta = grade_manager::get_metadata((int) $fieldobj->id, (int) $recordobj->id);
 
-        // Replace the raw content1 JSON with readable grading metadata.
+        // Replace the raw content1 JSON with readable grading metadata. The whole
+        // content1 column is declared as personal data, so export every stored
+        // field rather than a subset, transforming booleans and timestamps.
         unset($defaultvalue->content1);
-        $defaultvalue->grade            = $contentobj->content;
-        $defaultvalue->feedback         = $meta['feedback'];
-        $defaultvalue->released         = transform::yesno($meta['released']);
-        $defaultvalue->submissionstatus = $meta['submission_status'];
+        $defaultvalue->grade               = $contentobj->content;
+        $defaultvalue->graded              = transform::yesno($meta['graded']);
+        $defaultvalue->feedback            = $meta['feedback'];
+        $defaultvalue->feedbackformat      = (int) $meta['feedbackformat'];
+        $defaultvalue->released            = transform::yesno($meta['released']);
+        $defaultvalue->submissionstatus    = $meta['submission_status'];
+        $defaultvalue->requireresubmission = transform::yesno($meta['requireresubmission']);
         if ($meta['rubric_scores'] !== null && $meta['rubric_scores'] !== '') {
             $defaultvalue->rubricscores = $meta['rubric_scores'];
+        }
+        if (!empty($meta['timecreated'])) {
+            $defaultvalue->timecreated = transform::datetime((int) $meta['timecreated']);
+        }
+        if (!empty($meta['timemodified'])) {
+            $defaultvalue->timemodified = transform::datetime((int) $meta['timemodified']);
         }
 
         writer::with_context($context)->export_data([$recordobj->id, $contentobj->id], $defaultvalue);

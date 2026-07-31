@@ -164,7 +164,7 @@ final class provider_test extends \advanced_testcase {
         $fieldobj = $DB->get_record('data_fields', ['id' => $this->fieldid]);
         $contentobj = $DB->get_record('data_content', ['id' => $contentid]);
 
-        // mod_data hands the field a value object pre-populated with the raw row.
+        // Mimic the value object mod_data hands the field, pre-filled with the raw row.
         $defaultvalue = (object) [
             'field'    => $fieldobj->name,
             'content'  => $contentobj->content,
@@ -178,10 +178,16 @@ final class provider_test extends \advanced_testcase {
 
         $exported = $writer->get_data([$recordid, $contentid]);
         $this->assertSame('75', $exported->grade);
+        $this->assertSame(transform::yesno(1), $exported->graded);
         $this->assertSame('Good work, but check your citations.', $exported->feedback);
         $this->assertSame(transform::yesno(1), $exported->released);
         $this->assertSame(grade_manager::STATUS_SUBMITTED, $exported->submissionstatus);
+        $this->assertSame(transform::yesno(0), $exported->requireresubmission);
         $this->assertSame(json_encode(['clarity' => 3, 'accuracy' => 2]), $exported->rubricscores);
+
+        // Stored timestamps are exported as readable dates, not raw epochs.
+        $this->assertObjectHasProperty('timecreated', $exported);
+        $this->assertObjectHasProperty('timemodified', $exported);
 
         // The raw metadata JSON must not leak into the export.
         $this->assertObjectNotHasProperty('content1', $exported);
