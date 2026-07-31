@@ -9,6 +9,12 @@ jobs:
   test:
     runs-on: ubuntu-24.04
 
+    # Moodle's in-development main branch (5.3-dev) tracks DB requirements ahead
+    # of the pinned service images (it currently needs PostgreSQL 17 / MariaDB
+    # 11.4), so its legs are advisory early-warning only and must not block the
+    # supported 5.0-5.2 legs. Every other branch stays required.
+    continue-on-error: ${{ matrix.moodle-branch == 'main' }}
+
     services:
       postgres:
         image: postgres:16.6
