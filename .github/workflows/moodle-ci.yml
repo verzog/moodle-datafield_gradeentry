@@ -64,6 +64,10 @@ jobs:
           # Retry the create-project + install up to 3 times with linear
           # backoff so a transient network/composer flake doesn't cascade
           # into "moodle-plugin-ci: command not found" on every later step.
+          # Each retry must also remove the moodle/ and moodledata/ trees a
+          # partial "install" leaves behind, otherwise the next attempt's
+          # "git clone ... moodle" aborts with "destination path already
+          # exists" and every retry fails for good.
           attempt=1
           until [ "$attempt" -gt 3 ]; do
             echo "::group::moodle-plugin-ci install attempt $attempt"
@@ -82,7 +86,7 @@ jobs:
             echo "Install attempt $attempt failed; retrying after $((attempt * 10))s."
             sleep $((attempt * 10))
             attempt=$((attempt + 1))
-            rm -rf ci
+            rm -rf ci moodle moodledata
           done
           echo "moodle-plugin-ci install failed after 3 attempts."
           exit 1
