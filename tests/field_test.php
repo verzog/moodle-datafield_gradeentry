@@ -28,12 +28,13 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
- * Unit tests for the grade entry field's form-submit hooks.
+ * Unit tests for the grade entry field's form-submit hooks and browse view.
  *
  * The form-submit hooks on this field type are intentionally permissive:
- * students cannot supply a value (display_add_field() emits only a hidden
- * empty input) and teachers grade via the inline AJAX panel - which has
- * its own bounds checking - not through the standard entry-form submit.
+ * students only choose a submission status (display_add_field() emits a
+ * draft/submitted radio group) and teachers grade via the inline AJAX panel -
+ * which has its own bounds checking - not through the standard entry-form
+ * submit. update_content() ignores a numeric value from anyone who cannot grade.
  *
  * mod_data's data_process_submission() treats any truthy return from
  * field_validation() as an error message and blocks the entry save, and
@@ -139,5 +140,82 @@ final class field_test extends \advanced_testcase {
         $this->assertFalse($field->notemptyfield('50', ''));
         $this->assertFalse($field->notemptyfield('', ''));
         $this->assertFalse($field->notemptyfield(null, ''));
+    }
+
+    /**
+     * Create an enrolled user and a data record they own.
+     *
+     * @param  string $role  Role shortname to enrol the user with.
+     * @return array  [user, record ID].
+     */
+    private function make_user_with_record(string $role = 'student'): array {
+        global $DB;
+        $user = $this->getDataGenerator()->create_and_enrol(get_course($this->dataactivity->course), $role);
+        $rid = (int) $DB->insert_record('data_records', (object) [
+            'userid'       => $user->id,
+            'dataid'       => $this->dataactivity->id,
+            'groupid'      => 0,
+            'timecreated'  => time(),
+            'timemodified' => time(),
+            'approved'     => 1,
+        ]);
+        return [$user, $rid];
+    }
+
+    /**
+     * A student saving their own entry cannot set a grade by posting a number.
+     */
+    public function test_update_content_ignores_numeric_grade_from_student(): void {
+        global $DB;
+        $field = $this->make_field();
+        [$student, $rid] = $this->make_user_with_record();
+        $this->setUser($student);
+
+        $field->update_content($rid, '100');
+
+        $this->assertFalse($DB->get_field('data_content', 'content', ['fieldid' => $field->field->id, 'recordid' => $rid]));
+    }
+
+    /**
+     * A grader can still set a numeric grade through update_content() (CSV import).
+     */
+    public function test_update_content_stores_numeric_grade_from_teacher(): void {
+        global $DB;
+        $field = $this->make_field();
+        [, $rid] = $this->make_user_with_record();
+        [$teacher] = $this->make_user_with_record('editingteacher');
+        $this->setUser($teacher);
+
+        $field->update_content($rid, '42');
+
+        $this->assertEquals(42, $DB->get_field('data_content', 'content', ['fieldid' => $field->field->id, 'recordid' => $rid]));
+    }
+
+    /**
+     * Released grades and feedback are shown to the entry's author only.
+     */
+    public function test_browse_field_hides_grade_from_other_students(): void {
+        global $DB;
+        $field = $this->make_field();
+        [$author, $rid] = $this->make_user_with_record();
+        [$classmate] = $this->make_user_with_record();
+
+        $meta = array_merge(grade_manager::metadata_defaults(), [
+            'graded'   => 1,
+            'released' => 1,
+            'feedback' => 'Private feedback',
+        ]);
+        $DB->insert_record('data_content', (object) [
+            'fieldid'  => $field->field->id,
+            'recordid' => $rid,
+            'content'  => 88,
+            'content1' => json_encode($meta),
+        ]);
+
+        $this->setUser($author);
+        $this->assertStringContainsString('Private feedback', $field->display_browse_field($rid, ''));
+
+        $this->setUser($classmate);
+        $this->assertSame('', $field->display_browse_field($rid, ''));
     }
 }

@@ -17,7 +17,7 @@
 /**
  * Grade storage and gradebook synchronisation manager for datafield_gradeentry.
  *
- * Grade metadata (feedback, grader, release state, submission status, rubric
+ * Grade metadata (feedback, graded flag, release state, submission status, rubric
  * scores) is stored as a JSON blob in data_content.content1, alongside the
  * grade value in data_content.content. Keeping everything in mod_data's own
  * data_content table means the plugin's data is covered by mod_data's backup,
@@ -130,6 +130,16 @@ class grade_manager {
     public static function has_metadata(int $fieldid, int $recordid): bool {
         global $DB;
         $json = $DB->get_field('data_content', 'content1', ['fieldid' => $fieldid, 'recordid' => $recordid]);
+        return self::has_metadata_json($json);
+    }
+
+    /**
+     * Return true when a raw content1 value holds a metadata blob.
+     *
+     * @param  mixed $json  Raw content1 value (string, null, or false).
+     * @return bool
+     */
+    private static function has_metadata_json($json): bool {
         return $json !== false && $json !== null && $json !== ''
             && is_array(json_decode((string) $json, true));
     }
@@ -162,12 +172,60 @@ class grade_manager {
     }
 
     /**
-     * Save a grade for one database entry and sync to the Moodle gradebook.
+     * Return the gradebook item settings for a Grade entry field.
+     *
+     * Scale fields use the field's scale. Rubric fields use the sum of each
+     * criterion's highest level score as the maximum. Numeric fields use the
+     * configured maximum grade, or 100 when no maximum is set.
+     *
+     * @param  \stdClass $field  The data_fields row (needs param2, param5, param6 and param7).
+     * @return array  [scaleid, maxgrade]; scaleid is 0 for non-scale fields.
+     */
+    public static function grade_item_settings(\stdClass $field): array {
+        $method = (string) ($field->param5 ?? self::METHOD_NUMERIC);
+
+        if ($method === self::METHOD_SCALE) {
+            return [(int) ($field->param6 ?? 0), 0.0];
+        }
+
+        if ($method === self::METHOD_RUBRIC) {
+            $total = 0.0;
+            foreach (self::get_rubric_criteria($field) as $criterion) {
+                $scores = array_map(static fn($level) => (float) ($level['score'] ?? 0), $criterion['levels'] ?? []);
+                $total += $scores ? max($scores) : 0.0;
+            }
+            if ($total > 0) {
+                return [0, $total];
+            }
+        }
+
+        $max = $field->param2 ?? '';
+        return [0, is_numeric($max) && (float) $max > 0 ? (float) $max : 100.0];
+    }
+
+    /**
+     * Decode a field's rubric criteria JSON (param7).
+     *
+     * @param  \stdClass $field  The data_fields row.
+     * @return array  List of criteria, each with a name and a list of levels; empty when not configured.
+     */
+    public static function get_rubric_criteria(\stdClass $field): array {
+        $json = (string) ($field->param7 ?? '');
+        if ($json === '') {
+            return [];
+        }
+        $criteria = json_decode($json, true);
+        return is_array($criteria) ? array_values($criteria) : [];
+    }
+
+    /**
+     * Save the grading metadata for one database entry.
      *
      * The grade value itself is already persisted in data_content.content by the
      * calling web-service layer. This method writes the grade metadata blob
-     * (feedback, released flag, grader) into content1 and fires the gradebook
-     * update.
+     * (feedback, graded flag) into content1 and re-syncs the student's
+     * gradebook grade, which only ever reflects a released entry; an
+     * unreleased grade reaches the gradebook when release() is called.
      *
      * @param int         $cmid         Course-module ID of the database activity.
      * @param int         $fieldid      Grade entry field ID.
@@ -175,7 +233,6 @@ class grade_manager {
      * @param float       $grade        Numeric grade value (or scale index for scale grading).
      * @param string      $feedback     Teacher feedback (may be empty).
      * @param string|null $rubricscores JSON-encoded per-criterion rubric scores (optional).
-     * @param int         $scaleid      Moodle scale ID when grading method is scale; 0 otherwise.
      */
     public static function save(
         int $cmid,
@@ -183,10 +240,9 @@ class grade_manager {
         int $recordid,
         float $grade,
         string $feedback,
-        ?string $rubricscores = null,
-        int $scaleid = 0
+        ?string $rubricscores = null
     ): void {
-        [$dataid, $courseid, $studentid, $maxgrade] = self::resolve_record_context($cmid, $recordid);
+        [$dataid, , $studentid] = self::resolve_record_context($cmid, $recordid);
 
         $now = time();
         $isnew = !self::has_metadata($fieldid, $recordid);
@@ -211,7 +267,7 @@ class grade_manager {
 
         self::set_metadata($fieldid, $recordid, $meta);
 
-        self::push_to_gradebook($dataid, $courseid, $studentid, $grade, $maxgrade, $scaleid);
+        self::sync_gradebook($dataid, $fieldid, [$studentid]);
     }
 
     /**
@@ -222,19 +278,18 @@ class grade_manager {
      *
      * @param int $cmid      Course-module ID of the database activity.
      * @param int $recordid  Data record ID.
-     * @param int $fieldid   ID of the gradeentry field (needed to read scale/maxgrade config).
+     * @param int $fieldid   ID of the gradeentry field.
      */
     public static function delete(int $cmid, int $recordid, int $fieldid): void {
-        global $DB, $CFG;
+        global $DB;
 
-        [$dataid, $courseid, $studentid] = self::resolve_record_context($cmid, $recordid);
+        [$dataid, , $studentid] = self::resolve_record_context($cmid, $recordid);
 
         // Clear the grade value but keep the content row so the submission
         // status stored in content1 survives.
         $content = $DB->get_record('data_content', ['fieldid' => $fieldid, 'recordid' => $recordid]);
         if ($content) {
             $content->content = null;
-            $DB->update_record('data_content', $content);
 
             // Reset only the grading fields; preserve submission_status and
             // requireresubmission because content1 is their only storage.
@@ -249,26 +304,15 @@ class grade_manager {
             $DB->update_record('data_content', $content);
         }
 
-        require_once($CFG->dirroot . '/mod/data/field/gradeentry/lib.php');
-
-        // Use the field's actual grading configuration so the gradebook item
-        // type (GRADE_TYPE_SCALE vs GRADE_TYPE_VALUE) is not altered by this call.
-        $field   = $DB->get_record('data_fields', ['id' => $fieldid, 'dataid' => $dataid], 'param2,param5,param6', MUST_EXIST);
-        $method  = (string) ($field->param5 ?? self::METHOD_NUMERIC);
-        $scaleid = ($method === self::METHOD_SCALE) ? (int) ($field->param6 ?? 0) : 0;
-        $maxgrade = ($scaleid > 0) ? 0.0 : (float) ($field->param2 !== '' && $field->param2 !== null ? $field->param2 : 100);
-
-        $data = $DB->get_record('data', ['id' => $dataid], 'id, name, course', MUST_EXIST);
-        $data->_maxgrade = $maxgrade;
-        $data->_scaleid  = $scaleid;
-
-        // Rawgrade = null removes the gradebook entry for this student.
-        $gradeobject = (object) ['userid' => $studentid, 'rawgrade' => null];
-        \datafield_gradeentry_grade_item_update($data, $gradeobject);
+        // Falls back to another released entry, or removes the student's grade.
+        self::sync_gradebook($dataid, $fieldid, [$studentid]);
     }
 
     /**
-     * Set the released state of one or more entries.
+     * Set the released state of one or more entries and sync the gradebook.
+     *
+     * Afterwards each affected student's gradebook grade is recomputed, so
+     * students only ever see released grades there.
      *
      * @param int        $dataid     Database activity ID.
      * @param int[]|null $recordids  Specific record IDs, or null to operate on all graded entries.
@@ -283,37 +327,50 @@ class grade_manager {
             return 0;
         }
 
-        $now = time();
-        $flag = $released ? 1 : 0;
-
+        $params = ['fieldid' => $fieldid, 'dataid' => $dataid];
+        $where = '';
         if ($recordids !== null) {
-            $count = 0;
-            foreach ($recordids as $rid) {
-                $rid = (int) $rid;
-                if (!self::has_metadata($fieldid, $rid)) {
-                    continue;
-                }
-                $meta = self::get_metadata($fieldid, $rid);
-                $meta['released']     = $flag;
-                $meta['timemodified'] = $now;
-                self::set_metadata($fieldid, $rid, $meta);
-                $count++;
+            if (!$recordids) {
+                return 0;
             }
-            return $count;
+            [$insql, $inparams] = $DB->get_in_or_equal(array_map('intval', $recordids), SQL_PARAMS_NAMED, 'rid');
+            $where = " AND dc.recordid {$insql}";
+            $params += $inparams;
         }
 
-        // Operate on every graded entry (graded flag set in content1).
-        $rows = $DB->get_records('data_content', ['fieldid' => $fieldid], '', 'id, content1');
+        $rows = $DB->get_records_sql(
+            "SELECT dc.id, dc.content1, dr.userid
+               FROM {data_content} dc
+               JOIN {data_records} dr ON dr.id = dc.recordid AND dr.dataid = :dataid
+              WHERE dc.fieldid = :fieldid{$where}",
+            $params
+        );
+
+        $now = time();
         $count = 0;
+        $userids = [];
         foreach ($rows as $row) {
-            $meta = self::decode_metadata($row->content1);
-            if (empty($meta['graded'])) {
+            if (!self::has_metadata_json($row->content1)) {
                 continue;
             }
-            $meta['released']     = $flag;
+            $meta = self::decode_metadata($row->content1);
+            // Release-all only touches graded entries; an explicit list may
+            // also include ungraded entries that already have metadata.
+            if ($recordids === null && empty($meta['graded'])) {
+                continue;
+            }
+            $meta['released']     = $released ? 1 : 0;
             $meta['timemodified'] = $now;
             $DB->set_field('data_content', 'content1', json_encode($meta), ['id' => $row->id]);
             $count++;
+
+            if (!empty($meta['graded'])) {
+                $userids[(int) $row->userid] = (int) $row->userid;
+            }
+        }
+
+        if ($userids) {
+            self::sync_gradebook($dataid, $fieldid, array_values($userids));
         }
 
         return $count;
@@ -456,37 +513,66 @@ class grade_manager {
     }
 
     /**
-     * Push one student's grade to the Moodle gradebook.
+     * Recompute and push the gradebook grade for each of the given students.
      *
-     * @param int   $dataid
-     * @param int   $courseid
-     * @param int   $userid
-     * @param float $grade    Numeric value or 1-based scale index.
-     * @param float $maxgrade Maximum grade (ignored when $scaleid > 0).
-     * @param int   $scaleid  Moodle scale ID; > 0 causes a GRADE_TYPE_SCALE item to be used.
+     * The gradebook holds one grade per student for the activity, but a student
+     * can have several entries. Their grade is that of their most recent
+     * (highest record id) graded and released entry, or none when no entry is
+     * released, so changing one entry never clobbers another entry's grade.
+     *
+     * @param int   $dataid   Database activity ID.
+     * @param int   $fieldid  Grade entry field ID.
+     * @param int[] $userids  Students whose grade should be recomputed.
      */
-    private static function push_to_gradebook(
-        int $dataid,
-        int $courseid,
-        int $userid,
-        float $grade,
-        float $maxgrade,
-        int $scaleid = 0
-    ): void {
+    private static function sync_gradebook(int $dataid, int $fieldid, array $userids): void {
+        global $DB;
+
+        $grades = array_fill_keys(array_map('intval', $userids), null);
+        [$insql, $params] = $DB->get_in_or_equal(array_keys($grades), SQL_PARAMS_NAMED, 'uid');
+        $params += ['fieldid' => $fieldid, 'dataid' => $dataid];
+        $rows = $DB->get_records_sql(
+            "SELECT dc.id, dc.content, dc.content1, dr.userid
+               FROM {data_content} dc
+               JOIN {data_records} dr ON dr.id = dc.recordid AND dr.dataid = :dataid
+              WHERE dc.fieldid = :fieldid AND dr.userid {$insql}
+           ORDER BY dr.id ASC",
+            $params
+        );
+        foreach ($rows as $row) {
+            $meta = self::decode_metadata($row->content1);
+            if (!empty($meta['graded']) && !empty($meta['released']) && $row->content !== null && $row->content !== '') {
+                $grades[(int) $row->userid] = (float) $row->content;
+            }
+        }
+
+        self::push_to_gradebook($dataid, $fieldid, $grades);
+    }
+
+    /**
+     * Push grades for one or more students to the Moodle gradebook.
+     *
+     * @param int   $dataid   Database activity ID.
+     * @param int   $fieldid  Grade entry field ID (its settings decide the grade item type and maximum).
+     * @param array $grades   Map of user ID to grade (numeric value or 1-based scale index); null removes the grade.
+     */
+    private static function push_to_gradebook(int $dataid, int $fieldid, array $grades): void {
         global $CFG, $DB;
 
         require_once($CFG->dirroot . '/mod/data/field/gradeentry/lib.php');
+
+        $field = $DB->get_record('data_fields', ['id' => $fieldid, 'dataid' => $dataid], '*', MUST_EXIST);
+        [$scaleid, $maxgrade] = self::grade_item_settings($field);
 
         $data = $DB->get_record('data', ['id' => $dataid], 'id, name, course', MUST_EXIST);
         $data->_maxgrade = $maxgrade;
         $data->_scaleid = $scaleid;
 
-        $gradeobject = (object) [
-            'userid' => $userid,
-            'rawgrade' => $grade,
-        ];
+        $gradeobjects = [];
+        foreach ($grades as $userid => $grade) {
+            $gradeobjects[$userid] = (object) ['userid' => (int) $userid, 'rawgrade' => $grade];
+        }
 
-        \datafield_gradeentry_grade_item_update($data, $gradeobject);
+        \datafield_gradeentry_grade_item_update($data, $gradeobjects);
     }
 
     /**
@@ -494,7 +580,7 @@ class grade_manager {
      *
      * @param  int $cmid      Course-module ID.
      * @param  int $recordid  Data record ID.
-     * @return array  [dataid, courseid, studentuserid, maxgrade].
+     * @return array  [dataid, courseid, studentuserid].
      */
     private static function resolve_record_context(int $cmid, int $recordid): array {
         global $DB;
@@ -507,15 +593,6 @@ class grade_manager {
             MUST_EXIST
         );
 
-        $maxgrade = (float) ($DB->get_field_select(
-            'data_fields',
-            'param2',
-            'dataid = :dataid AND type = :type AND '
-                . $DB->sql_isnotempty('data_fields', 'param2', false, false),
-            ['dataid' => $cm->instance, 'type' => 'gradeentry'],
-            IGNORE_MISSING
-        ) ?? 100);
-
-        return [(int) $cm->instance, (int) $cm->course, (int) $record->userid, $maxgrade];
+        return [(int) $cm->instance, (int) $cm->course, (int) $record->userid];
     }
 }

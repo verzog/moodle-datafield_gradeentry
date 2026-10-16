@@ -23,6 +23,7 @@
  */
 
 $string['awaitinggrade'] = 'Your teacher will enter a grade for this entry.';
+$string['criterionn'] = 'Criterion {$a}';
 $string['decimals'] = 'Decimal places';
 $string['decimals_help'] = 'The number of decimal places to display for grade values.';
 $string['errornopermission'] = 'You do not have permission to grade this entry.';
@@ -57,7 +58,7 @@ $string['mingrade_help'] = 'The minimum allowable grade value for this field.';
 $string['pluginname'] = 'Grade entry';
 $string['privacy:metadata:data_content'] = 'The Grade entry field stores the grade and grading metadata for each database entry within the mod_data content record.';
 $string['privacy:metadata:data_content:content'] = 'The grade awarded for the entry.';
-$string['privacy:metadata:data_content:content1'] = 'Grading metadata for the entry: teacher feedback, whether the grade has been released, and the submission status.';
+$string['privacy:metadata:data_content:content1'] = 'Grading metadata for the entry: teacher feedback, whether the entry has been graded and the grade released, the submission status, any rubric scores, and when the metadata was created and last modified.';
 $string['releaseall'] = 'Release all grades';
 $string['released'] = 'Released';
 $string['releasedcount'] = '{$a} grades released';
@@ -67,6 +68,8 @@ $string['resubmissionrequired'] = 'Resubmission required';
 $string['resubmissionrequired_student'] = 'Your teacher has asked you to revise and resubmit this entry.';
 $string['rubriccriteria'] = 'Rubric criteria';
 $string['rubriccriteria_help'] = 'Define the rubric as a JSON array. Each criterion has a name and an array of levels with a score and description. Example: [{"name":"Quality","levels":[{"score":0,"desc":"Poor"},{"score":5,"desc":"Good"},{"score":10,"desc":"Excellent"}]}]';
+$string['rubricjsonnotarray'] = 'The rubric must be a JSON array of criteria.';
+$string['rubricjsonvalid'] = 'Valid JSON ({$a} criteria)';
 $string['rubricnotconfigured'] = 'Rubric criteria are not configured for this field.';
 $string['rubrictotal'] = 'Total: {$a}';
 $string['saveasdraft'] = 'Save as draft';

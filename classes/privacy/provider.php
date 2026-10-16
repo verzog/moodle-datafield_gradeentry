@@ -35,7 +35,7 @@ use mod_data\privacy\datafield_provider;
  *
  * All data this plugin stores lives in mod_data's {data_content} table: the
  * grade value in the content column and the grading metadata (feedback,
- * grader, release state, submission status, rubric scores) as JSON in
+ * graded flag, release state, submission status, rubric scores) as JSON in
  * content1. Export and deletion are therefore driven by mod_data's own
  * privacy provider, which calls the {@see datafield_provider} methods below.
  */
