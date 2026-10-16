@@ -513,6 +513,58 @@ class grade_manager {
     }
 
     /**
+     * Bring an activity's gradebook back in line with the release state.
+     *
+     * Recomputes the grade of every student who has a graded entry, so each
+     * holds their latest released grade or none. Activities without a gradebook
+     * item are left alone, so this never creates one.
+     *
+     * Must not be called during an upgrade: the gradebook API loads course
+     * module info, which Moodle refuses while an upgrade is running. The
+     * upgrade queues the resync_gradebook ad hoc task instead.
+     *
+     * @param int $dataid  Database activity ID.
+     */
+    public static function resync_activity(int $dataid): void {
+        global $DB;
+
+        $fieldid = self::get_field_id($dataid);
+        $data = $DB->get_record('data', ['id' => $dataid], 'id, course');
+        if ($fieldid === null || !$data) {
+            return;
+        }
+
+        $hasitem = $DB->record_exists('grade_items', [
+            'courseid'     => $data->course,
+            'itemtype'     => 'mod',
+            'itemmodule'   => 'data',
+            'iteminstance' => $dataid,
+            'itemnumber'   => 0,
+        ]);
+        if (!$hasitem) {
+            return;
+        }
+
+        $rows = $DB->get_records_sql(
+            "SELECT dc.id, dc.content1, dr.userid
+               FROM {data_content} dc
+               JOIN {data_records} dr ON dr.id = dc.recordid AND dr.dataid = :dataid
+              WHERE dc.fieldid = :fieldid",
+            ['fieldid' => $fieldid, 'dataid' => $dataid]
+        );
+        $userids = [];
+        foreach ($rows as $row) {
+            if (!empty(self::decode_metadata($row->content1)['graded'])) {
+                $userids[(int) $row->userid] = (int) $row->userid;
+            }
+        }
+
+        if ($userids) {
+            self::sync_gradebook($dataid, $fieldid, array_values($userids));
+        }
+    }
+
+    /**
      * Recompute and push the gradebook grade for each of the given students.
      *
      * The gradebook holds one grade per student for the activity, but a student
