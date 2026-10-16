@@ -3,6 +3,51 @@
 All notable changes to the Grade Entry field plugin (`datafield_gradeentry`)
 are documented in this file.
 
+## 1.0.0-beta.4 — 2026-10-16
+
+### Security and privacy
+- Students no longer see other students' grades and feedback. The browse view
+  showed a released grade, feedback and submission status to anyone who could
+  view the entry; it is now shown only to the entry's author (with the
+  `datafield/gradeentry:viewgrades` capability) and to graders.
+- Unreleased grades no longer appear in the gradebook. Grades were pushed to
+  the gradebook as soon as a teacher saved them, so students could see them in
+  their grade report before release. Grades now reach the gradebook only when
+  released, and unreleasing removes them.
+- A student can no longer grade their own entry by posting a number for this
+  field when saving the entry. Numeric values through the entry form (CSV
+  import) are accepted only from users who can grade.
+- Rubric totals are computed on the server from the selected level scores
+  instead of trusting the total sent by the browser.
+
+### Fixed
+- Scale-graded activities kept turning back into points (value) grade items:
+  a duplicate gradebook sync in the `entry_graded` event observer did not pass
+  the scale. The observer is removed; the event is still logged.
+- The gradebook maximum was 0 when a numeric field had no maximum set; it now
+  defaults to 100. Rubric fields use the sum of each criterion's highest level
+  score as the maximum.
+- Course-level custom scales were missing from the field settings form.
+- "Criterion N" fallback names and the rubric JSON validator messages are now
+  translatable.
+
+### Changed
+- Supported Moodle versions are now 5.1 to 5.3 LTS (`requires` 5.1). Moodle
+  5.0 is no longer supported.
+- CI runs a branch-aware matrix for Moodle 5.1, 5.2 and 5.3 (plus Moodle
+  `main`, allowed to fail) on PostgreSQL 17 and MariaDB 11.4. A grunt check
+  of the AMD build is added but non-blocking until the hand-written
+  `amd/build` file is rebuilt with grunt.
+- The release workflow runs when a GitHub release is published and refuses to
+  build if the tag does not match `$plugin->release`.
+- Line endings are forced to LF, and `.github/` and `tests/` are left out of
+  release ZIPs.
+
+### Upgrade
+- The upgrade removes grades that were saved but never released from the
+  gradebook, so existing sites stop showing them to students straight away.
+  Released grades are left in place.
+
 ## 1.0.0-beta.3 — 2026-07-31
 
 ### Fixed

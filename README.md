@@ -8,7 +8,7 @@ lightweight, gradable activity. Teachers grade each student entry directly in
 the browse view through an inline panel, and released grades flow automatically
 to the Moodle gradebook.
 
-**Compatibility:** Moodle 5.0 – 5.2 · PHP 8.2 – 8.4 · maturity: beta.
+**Compatibility:** Moodle 5.1 – 5.3 LTS · PHP 8.2 – 8.4 · maturity: beta.
 
 ## Features
 
@@ -17,16 +17,19 @@ to the Moodle gradebook.
     precision, and optional percentage display.
   - *Scale* — grade using any standard Moodle scale.
   - *Rubric* — define criteria and scored levels as JSON; the panel totals the
-    score automatically and students see a per-criterion breakdown.
+    score automatically and students see a per-criterion breakdown. The
+    gradebook maximum is the sum of each criterion's highest level score.
 - **Inline grading** in the browse view with autosave — no separate page.
-- **Per-entry feedback** from the teacher.
+- **Per-entry feedback** from the teacher. Grades and feedback are shown only to
+  the entry's author and to graders, never to other students.
 - **Grade release** — release grades to students individually or all at once, or
   hold them back until you are ready.
 - **Grading progress** indicator (graded / total).
 - **Submission workflow** — students save as draft or submit for grading;
   teachers can flag an entry as requiring resubmission.
-- **Gradebook synchronisation** — released grades are pushed to the gradebook as
-  the activity's grade item (value or scale).
+- **Gradebook synchronisation** — only released grades are pushed to the
+  gradebook, as the activity's grade item (value or scale). Unreleasing a grade
+  removes it from the gradebook again.
 - **Backup, restore and course copy** — grades and grading metadata are stored in
   the Database activity's own content record, so they are included in standard
   mod_data backup, restore and course-copy.
@@ -35,20 +38,33 @@ to the Moodle gradebook.
 
 ## Requirements
 
-- Moodle 5.0 or later
-- PHP 8.2 or later
+| Moodle | PHP |
+|---|---|
+| 5.1 | 8.2 – 8.4 |
+| 5.2 | 8.3 – 8.4 |
+| 5.3 LTS | 8.3 – 8.4 |
+
+Moodle 5.0 and earlier are not supported.
 
 ## Installing via uploaded ZIP file
 
-1. Log in to your Moodle site as an admin and go to *Site administration > Plugins > Install plugins*.
-2. Upload the ZIP file with the plugin code.
-3. Check the plugin validation report and finish the installation.
+1. Download `datafield_gradeentry-<version>.zip` from the
+   [GitHub releases](https://github.com/verzog/moodle-datafield_gradeentry/releases) page.
+   Don't use GitHub's "Source code (zip)" download: its root folder is the
+   repository name, which Moodle rejects. (If you do, enter `gradeentry` under
+   *Install plugins > Show more... > Rename the root directory*.)
+2. Log in to your Moodle site as an admin and go to *Site administration > Plugins > Install plugins*.
+3. Upload the ZIP file with the plugin code.
+4. Check the plugin validation report and finish the installation.
 
 ## Installing manually
 
 The plugin can be also installed by putting the contents of this directory to
 
     {your/moodle/dirroot}/mod/data/field/gradeentry
+
+On Moodle 5.1 and later `dirroot` is the `public/` folder of the Moodle
+codebase, so the path is `public/mod/data/field/gradeentry`.
 
 Afterwards, log in to your Moodle site as an admin and go to *Site administration > Notifications* to trigger the installation.
 
