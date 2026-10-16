@@ -29,10 +29,18 @@ defined('MOODLE_INTERNAL') || die();
 $currentmethod = (string) ($this->field->param5 ?? 'numeric');
 $currentscale  = (int)    ($this->field->param6 ?? 0);
 
-// Load all available Moodle scales for the current course (or site-wide).
+// Load the scales available to this activity's course, plus site-wide scales.
+// $COURSE is not in scope here (this file is included from a method), so use
+// the parent Database activity's course.
 $scales = \grade_scale::fetch_all_global();
-$coursescales = \grade_scale::fetch_all_local($COURSE->id ?? 0);
+$coursescales = \grade_scale::fetch_all_local((int) $this->data->course);
 $allscales = array_merge($coursescales ?: [], $scales ?: []);
+
+// Strings for the rubric JSON validator below.
+$rubricstrings = [
+    'valid' => get_string('rubricjsonvalid', 'datafield_gradeentry', '{count}'),
+    'notarray' => get_string('rubricjsonnotarray', 'datafield_gradeentry'),
+];
 ?>
 <div class="mb-3">
     <label for="name" class="form-label"><?php echo get_string('fieldname', 'data'); ?></label>
@@ -161,6 +169,8 @@ $allscales = array_merge($coursescales ?: [], $scales ?: []);
 
 <script>
 (function() {
+    var strings = <?php echo json_encode($rubricstrings, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+
     // Show/hide method-specific option panels.
     document.querySelectorAll('input[name="param5"]').forEach(function(radio) {
         radio.addEventListener('change', function() {
@@ -180,8 +190,8 @@ $allscales = array_merge($coursescales ?: [], $scales ?: []);
             var msg = document.getElementById('gradeentry-rubric-msg');
             try {
                 var data = JSON.parse(ta.value);
-                if (!Array.isArray(data)) throw new Error('Must be a JSON array.');
-                msg.textContent = '✓ Valid (' + data.length + ' criteria)';
+                if (!Array.isArray(data)) throw new Error(strings.notarray);
+                msg.textContent = '✓ ' + strings.valid.replace('{count}', data.length);
                 msg.className = 'small ms-2 text-success';
             } catch (e) {
                 msg.textContent = '✗ ' + e.message;
