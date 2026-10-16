@@ -134,13 +134,17 @@ jobs:
       # Grunt runs on the MOODLE_501_STABLE cells only: amd/build is made on
       # 5.1, and later branches can minify differently and fail on a harmless
       # difference.
+      # No plugin path here, unlike the other steps: grunt must run against the
+      # copy that "install" placed inside the Moodle tree. From ./plugin (the raw
+      # checkout beside Moodle) grunt cannot find Moodle's Gruntfile.js, and
+      # restoring the checkout's read-only .git objects afterwards crashes.
       # Non-blocking for now: amd/build/inline_grader.min.js was written by hand
       # and has never been through grunt. Remove continue-on-error once it has
       # been rebuilt with "npx grunt amd" in a MOODLE_501_STABLE checkout.
       - name: Grunt
         continue-on-error: true
         if: ${{ !cancelled() && steps.install.conclusion == 'success' && matrix.moodle-branch == 'MOODLE_501_STABLE' }}
-        run: moodle-plugin-ci grunt --max-lint-warnings 0 ./plugin
+        run: moodle-plugin-ci grunt --max-lint-warnings 0
 
       - name: PHPUnit tests
         if: ${{ !cancelled() && steps.install.conclusion == 'success' }}
