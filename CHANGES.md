@@ -13,7 +13,8 @@ are documented in this file.
 - Unreleased grades no longer appear in the gradebook. Grades were pushed to
   the gradebook as soon as a teacher saved them, so students could see them in
   their grade report before release. Grades now reach the gradebook only when
-  released, and unreleasing removes them.
+  released, and unreleasing removes them. When a student has several entries,
+  their gradebook grade is that of their most recent released entry.
 - A student can no longer grade their own entry by posting a number for this
   field when saving the entry. Numeric values through the entry form (CSV
   import) are accepted only from users who can grade.

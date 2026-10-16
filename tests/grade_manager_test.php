@@ -304,4 +304,32 @@ final class grade_manager_test extends \advanced_testcase {
         $field = (object) array_merge(['param2' => '', 'param5' => '', 'param6' => '', 'param7' => ''], $params);
         $this->assertSame($expected, grade_manager::grade_item_settings($field));
     }
+
+    /**
+     * With several entries per student, the gradebook follows the latest
+     * released entry, and unreleasing one entry never wipes another's grade.
+     */
+    public function test_gradebook_uses_latest_released_entry(): void {
+        global $DB;
+        $older = $this->create_graded_record((int) $this->student->id);
+        $newer = $this->create_graded_record((int) $this->student->id);
+        $DB->set_field('data_content', 'content', 60, ['fieldid' => $this->fieldid, 'recordid' => $older]);
+        $DB->set_field('data_content', 'content', 90, ['fieldid' => $this->fieldid, 'recordid' => $newer]);
+
+        grade_manager::release($this->data->id, [$older, $newer], true);
+        $this->assertEqualsWithDelta(90.0, $this->gradebook_grade((int) $this->student->id), 0.001);
+
+        // Unreleasing the older entry keeps the newer entry's grade.
+        grade_manager::release($this->data->id, [$older], false);
+        $this->assertEqualsWithDelta(90.0, $this->gradebook_grade((int) $this->student->id), 0.001);
+
+        // Unreleasing the newer entry falls back to the older one once it is released again.
+        grade_manager::release($this->data->id, [$older], true);
+        grade_manager::release($this->data->id, [$newer], false);
+        $this->assertEqualsWithDelta(60.0, $this->gradebook_grade((int) $this->student->id), 0.001);
+
+        // Clearing the remaining released entry removes the grade.
+        grade_manager::delete((int) $this->cm->id, $older, $this->fieldid);
+        $this->assertNull($this->gradebook_grade((int) $this->student->id));
+    }
 }

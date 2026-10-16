@@ -223,9 +223,9 @@ class grade_manager {
      *
      * The grade value itself is already persisted in data_content.content by the
      * calling web-service layer. This method writes the grade metadata blob
-     * (feedback, graded flag) into content1. The grade is pushed to the
-     * gradebook only when the entry has already been released; unreleased
-     * grades reach the gradebook when release() is called.
+     * (feedback, graded flag) into content1 and re-syncs the student's
+     * gradebook grade, which only ever reflects a released entry; an
+     * unreleased grade reaches the gradebook when release() is called.
      *
      * @param int         $cmid         Course-module ID of the database activity.
      * @param int         $fieldid      Grade entry field ID.
@@ -267,9 +267,7 @@ class grade_manager {
 
         self::set_metadata($fieldid, $recordid, $meta);
 
-        if (!empty($meta['released'])) {
-            self::push_to_gradebook($dataid, $fieldid, [$studentid => $grade]);
-        }
+        self::sync_gradebook($dataid, $fieldid, [$studentid]);
     }
 
     /**
@@ -306,15 +304,15 @@ class grade_manager {
             $DB->update_record('data_content', $content);
         }
 
-        // A null rawgrade removes the gradebook grade for this student.
-        self::push_to_gradebook($dataid, $fieldid, [$studentid => null]);
+        // Falls back to another released entry, or removes the student's grade.
+        self::sync_gradebook($dataid, $fieldid, [$studentid]);
     }
 
     /**
      * Set the released state of one or more entries and sync the gradebook.
      *
-     * Releasing pushes each graded entry's grade to the gradebook; unreleasing
-     * removes it, so students only ever see released grades there.
+     * Afterwards each affected student's gradebook grade is recomputed, so
+     * students only ever see released grades there.
      *
      * @param int        $dataid     Database activity ID.
      * @param int[]|null $recordids  Specific record IDs, or null to operate on all graded entries.
@@ -340,20 +338,17 @@ class grade_manager {
             $params += $inparams;
         }
 
-        // Records are ordered by id so that, when a student has several entries,
-        // the most recent one is the grade that ends up in the gradebook.
         $rows = $DB->get_records_sql(
-            "SELECT dc.id, dc.content, dc.content1, dr.userid
+            "SELECT dc.id, dc.content1, dr.userid
                FROM {data_content} dc
                JOIN {data_records} dr ON dr.id = dc.recordid AND dr.dataid = :dataid
-              WHERE dc.fieldid = :fieldid{$where}
-           ORDER BY dr.id ASC",
+              WHERE dc.fieldid = :fieldid{$where}",
             $params
         );
 
         $now = time();
         $count = 0;
-        $grades = [];
+        $userids = [];
         foreach ($rows as $row) {
             if (!self::has_metadata_json($row->content1)) {
                 continue;
@@ -369,13 +364,13 @@ class grade_manager {
             $DB->set_field('data_content', 'content1', json_encode($meta), ['id' => $row->id]);
             $count++;
 
-            if (!empty($meta['graded']) && $row->content !== null && $row->content !== '') {
-                $grades[(int) $row->userid] = $released ? (float) $row->content : null;
+            if (!empty($meta['graded'])) {
+                $userids[(int) $row->userid] = (int) $row->userid;
             }
         }
 
-        if ($grades) {
-            self::push_to_gradebook($dataid, $fieldid, $grades);
+        if ($userids) {
+            self::sync_gradebook($dataid, $fieldid, array_values($userids));
         }
 
         return $count;
@@ -515,6 +510,42 @@ class grade_manager {
      */
     public static function scale_index_to_grade(int $scaleid, int $index): float {
         return (float) $index;
+    }
+
+    /**
+     * Recompute and push the gradebook grade for each of the given students.
+     *
+     * The gradebook holds one grade per student for the activity, but a student
+     * can have several entries. Their grade is that of their most recent
+     * (highest record id) graded and released entry, or none when no entry is
+     * released, so changing one entry never clobbers another entry's grade.
+     *
+     * @param int   $dataid   Database activity ID.
+     * @param int   $fieldid  Grade entry field ID.
+     * @param int[] $userids  Students whose grade should be recomputed.
+     */
+    private static function sync_gradebook(int $dataid, int $fieldid, array $userids): void {
+        global $DB;
+
+        $grades = array_fill_keys(array_map('intval', $userids), null);
+        [$insql, $params] = $DB->get_in_or_equal(array_keys($grades), SQL_PARAMS_NAMED, 'uid');
+        $params += ['fieldid' => $fieldid, 'dataid' => $dataid];
+        $rows = $DB->get_records_sql(
+            "SELECT dc.id, dc.content, dc.content1, dr.userid
+               FROM {data_content} dc
+               JOIN {data_records} dr ON dr.id = dc.recordid AND dr.dataid = :dataid
+              WHERE dc.fieldid = :fieldid AND dr.userid {$insql}
+           ORDER BY dr.id ASC",
+            $params
+        );
+        foreach ($rows as $row) {
+            $meta = self::decode_metadata($row->content1);
+            if (!empty($meta['graded']) && !empty($meta['released']) && $row->content !== null && $row->content !== '') {
+                $grades[(int) $row->userid] = (float) $row->content;
+            }
+        }
+
+        self::push_to_gradebook($dataid, $fieldid, $grades);
     }
 
     /**
