@@ -46,17 +46,17 @@ let releasedCountStr = '{$a} grades released';
  */
 export const init = (cmid, contextid) => { // eslint-disable-line no-unused-vars
     getStrings([
-        {key: 'savinggrade',    component: 'datafield_gradeentry'},
-        {key: 'graded',         component: 'datafield_gradeentry'},
+        {key: 'savinggrade', component: 'datafield_gradeentry'},
+        {key: 'graded', component: 'datafield_gradeentry'},
         {key: 'errorsavegrade', component: 'datafield_gradeentry'},
         {key: 'gradingprogress', component: 'datafield_gradeentry'},
-        {key: 'savingstatus',   component: 'datafield_gradeentry'},
+        {key: 'savingstatus', component: 'datafield_gradeentry'},
         {key: 'errorsavestatus', component: 'datafield_gradeentry'},
         {key: 'submissionnotsubmitted', component: 'datafield_gradeentry'},
         {key: 'submissiondraft', component: 'datafield_gradeentry'},
         {key: 'submissionsubmitted', component: 'datafield_gradeentry'},
         {key: 'submissionresubmit', component: 'datafield_gradeentry'},
-        {key: 'releasedcount',  component: 'datafield_gradeentry'},
+        {key: 'releasedcount', component: 'datafield_gradeentry'},
     ]).then((strings) => {
         const [savingStr, gradedStr, errorStr, , savingStatusStr, errorStatusStr] = strings;
         statusLabels = {
@@ -91,7 +91,7 @@ const wireGradeInputs = (cmid, savingStr, gradedStr, errorStr) => {
 
         const saveHandler = () => {
             const feedback = getFeedbackFor(input.dataset.recordid);
-            const value    = input.value;
+            const value = input.value;
             if (value === '') {
                 return;
             }
@@ -139,7 +139,7 @@ const wireReleaseControls = (cmid) => {
     document.querySelectorAll('[data-gradeentry-release]').forEach(checkbox => {
         checkbox.addEventListener('change', () => {
             const recordid = parseInt(checkbox.dataset.recordid, 10);
-            const desired  = checkbox.checked;
+            const desired = checkbox.checked;
             Ajax.call([{
                 methodname: 'datafield_gradeentry_release_grades',
                 args: {cmid, recordids: [recordid], released: desired},
@@ -196,7 +196,7 @@ const wireSubmissionStatusButtons = (cmid, savingStatusStr, errorStatusStr) => {
     document.querySelectorAll('[data-gradeentry-submit-status]').forEach(btn => {
         btn.addEventListener('click', () => {
             const recordid = parseInt(btn.dataset.recordid, 10);
-            const status   = btn.dataset.status;
+            const status = btn.dataset.status;
 
             // Visually indicate saving.
             const badge = getSubmissionBadge(recordid);
@@ -229,7 +229,7 @@ const wireResubmissionControls = (cmid) => {
     document.querySelectorAll('[data-gradeentry-resubmit]').forEach(checkbox => {
         checkbox.addEventListener('change', () => {
             const recordid = parseInt(checkbox.dataset.recordid, 10);
-            const desired  = checkbox.checked;
+            const desired = checkbox.checked;
 
             Ajax.call([{
                 methodname: 'datafield_gradeentry_require_resubmission',
@@ -255,8 +255,8 @@ const wireResubmissionControls = (cmid) => {
 const wireRubricPanels = (cmid, savingStr, gradedStr, errorStr) => {
     document.querySelectorAll('[data-gradeentry-rubric]').forEach(panel => {
         const recordid = parseInt(panel.dataset.recordid, 10);
-        const fieldid  = parseInt(panel.dataset.fieldid, 10);
-        const hidden   = panel.querySelector('[data-gradeentry-field][type="hidden"]');
+        const fieldid = parseInt(panel.dataset.fieldid, 10);
+        const hidden = panel.querySelector('[data-gradeentry-field][type="hidden"]');
 
         panel.querySelectorAll('.gradeentry-criterion').forEach(criterion => {
             criterion.querySelectorAll('.gradeentry-rubric-level').forEach(btn => {
@@ -306,7 +306,7 @@ const calcRubricTotal = (panel) => {
     const scores = [];
     panel.querySelectorAll('.gradeentry-criterion').forEach(criterion => {
         const selected = criterion.querySelector('.gradeentry-rubric-level.active');
-        const score    = selected ? parseFloat(selected.dataset.score) : 0;
+        const score = selected ? parseFloat(selected.dataset.score) : 0;
         total += score;
         scores.push(score);
     });
@@ -319,7 +319,7 @@ const calcRubricTotal = (panel) => {
 
 const triggerSave = (cmid, gradeInput, fieldid, gradeValue, feedback, rubricscores, savingStr, gradedStr, errorStr) => {
     const recordid = parseInt(gradeInput.dataset.recordid, 10);
-    const status   = getStatusFor(recordid);
+    const status = getStatusFor(recordid);
 
     setStatus(status, 'saving', savingStr);
 
@@ -367,7 +367,7 @@ const setStatus = (el, state, text) => {
         return;
     }
     el.textContent = text;
-    el.className   = 'gradeentry-status gradeentry-status--' + state;
+    el.className = 'gradeentry-status gradeentry-status--' + state;
 };
 
 const updateReleasedLabel = (checkbox, isReleased) => {
@@ -386,7 +386,7 @@ const updateProgressBar = (graded, total) => {
         return;
     }
     bar.dataset.graded = graded;
-    bar.dataset.total  = total;
+    bar.dataset.total = total;
 
     const text = document.getElementById('datafield-gradeentry-progress-text');
     if (text) {

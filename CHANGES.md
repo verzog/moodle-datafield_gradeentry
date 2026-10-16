@@ -36,9 +36,11 @@ are documented in this file.
 - Supported Moodle versions are now 5.1 to 5.3 LTS (`requires` 5.1). Moodle
   5.0 is no longer supported.
 - CI runs a branch-aware matrix for Moodle 5.1, 5.2 and 5.3 (plus Moodle
-  `main`, allowed to fail) on PostgreSQL 17 and MariaDB 11.4. A grunt check
-  of the AMD build is added but non-blocking until the hand-written
-  `amd/build` file is rebuilt with grunt.
+  `main`, allowed to fail) on PostgreSQL 17 and MariaDB 11.4, and checks the
+  AMD build with grunt on the 5.1 cells.
+- The inline grader JavaScript (`amd/build/inline_grader.min.js`) is now built
+  by Moodle 5.1's grunt toolchain, with a source map. It was previously written
+  by hand.
 - The release workflow runs when a GitHub release is published and refuses to
   build if the tag does not match `$plugin->release`.
 - Line endings are forced to LF, and `.github/` and `tests/` are left out of
