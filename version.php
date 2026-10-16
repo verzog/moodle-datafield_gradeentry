@@ -24,9 +24,9 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->version    = 2026073100;
-$plugin->requires   = 2025041400;
-$plugin->supported  = [500, 502];
+$plugin->version    = 2026101600;
+$plugin->requires   = 2025100600; // Moodle 5.1.
+$plugin->supported  = [501, 503];
 $plugin->component  = 'datafield_gradeentry';
 $plugin->maturity   = MATURITY_BETA;
-$plugin->release    = '1.0.0-beta.3';
+$plugin->release    = '1.0.0-beta.4';
