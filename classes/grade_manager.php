@@ -44,6 +44,9 @@ class grade_manager {
     /** @var string Submission status: teacher has requested a resubmission. */
     const STATUS_RESUBMIT = 'resubmit';
 
+    /** @var int Maximum number of students recomputed per gradebook sync query. */
+    const SYNC_BATCH_SIZE = 500;
+
     /** @var string Grading method: plain numeric value. */
     const METHOD_NUMERIC = 'numeric';
     /** @var string Grading method: Moodle scale (1-based index). */
@@ -579,25 +582,30 @@ class grade_manager {
     private static function sync_gradebook(int $dataid, int $fieldid, array $userids): void {
         global $DB;
 
-        $grades = array_fill_keys(array_map('intval', $userids), null);
-        [$insql, $params] = $DB->get_in_or_equal(array_keys($grades), SQL_PARAMS_NAMED, 'uid');
-        $params += ['fieldid' => $fieldid, 'dataid' => $dataid];
-        $rows = $DB->get_records_sql(
-            "SELECT dc.id, dc.content, dc.content1, dr.userid
-               FROM {data_content} dc
-               JOIN {data_records} dr ON dr.id = dc.recordid AND dr.dataid = :dataid
-              WHERE dc.fieldid = :fieldid AND dr.userid {$insql}
-           ORDER BY dr.id ASC",
-            $params
-        );
-        foreach ($rows as $row) {
-            $meta = self::decode_metadata($row->content1);
-            if (!empty($meta['graded']) && !empty($meta['released']) && $row->content !== null && $row->content !== '') {
-                $grades[(int) $row->userid] = (float) $row->content;
+        // Batch the users so the IN (...) list stays well under database
+        // parameter limits (e.g. 2,100 on SQL Server) on large activities.
+        $userids = array_values(array_unique(array_map('intval', $userids)));
+        foreach (array_chunk($userids, self::SYNC_BATCH_SIZE) as $batch) {
+            $grades = array_fill_keys($batch, null);
+            [$insql, $params] = $DB->get_in_or_equal($batch, SQL_PARAMS_NAMED, 'uid');
+            $params += ['fieldid' => $fieldid, 'dataid' => $dataid];
+            $rows = $DB->get_records_sql(
+                "SELECT dc.id, dc.content, dc.content1, dr.userid
+                   FROM {data_content} dc
+                   JOIN {data_records} dr ON dr.id = dc.recordid AND dr.dataid = :dataid
+                  WHERE dc.fieldid = :fieldid AND dr.userid {$insql}
+               ORDER BY dr.id ASC",
+                $params
+            );
+            foreach ($rows as $row) {
+                $meta = self::decode_metadata($row->content1);
+                if (!empty($meta['graded']) && !empty($meta['released']) && $row->content !== null && $row->content !== '') {
+                    $grades[(int) $row->userid] = (float) $row->content;
+                }
             }
-        }
 
-        self::push_to_gradebook($dataid, $fieldid, $grades);
+            self::push_to_gradebook($dataid, $fieldid, $grades);
+        }
     }
 
     /**
