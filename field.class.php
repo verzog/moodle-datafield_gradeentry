@@ -25,7 +25,7 @@
 use datafield_gradeentry\grade_manager;
 
 /**
- * A Database activity field type that records numeric grade values.
+ * A Database activity field type that records a grade against each entry.
  *
  * Teachers grade entries via an inline panel in the browse view; students
  * see their released grade and feedback. Grades sync to the Moodle gradebook
@@ -124,15 +124,26 @@ class data_field_gradeentry extends data_field_base {
     /**
      * Render the field for the browse (list/single) view.
      *
+     * Graders see the inline grading panel. The entry's author sees their own
+     * status, released grade and feedback. Everyone else sees nothing, so one
+     * student can never read another student's grade or feedback.
+     *
      * @param int    $recordid  Database record ID.
      * @param string $template  Template context (unused).
      * @return string  HTML fragment.
      */
     public function display_browse_field($recordid, $template) {
-        global $DB;
+        global $DB, $USER;
 
         $context  = context_module::instance($this->cm->id);
         $isteacher = has_capability('datafield/gradeentry:grade', $context);
+
+        if (!$isteacher) {
+            $ownerid = (int) $DB->get_field('data_records', 'userid', ['id' => $recordid]);
+            if ($ownerid !== (int) $USER->id || !has_capability('datafield/gradeentry:viewgrades', $context)) {
+                return '';
+            }
+        }
 
         $content  = $DB->get_record('data_content', ['fieldid' => $this->field->id, 'recordid' => $recordid]);
         $graderaw = ($content && $content->content !== null && $content->content !== '')
@@ -335,11 +346,7 @@ class data_field_gradeentry extends data_field_base {
         ?float $graderaw,
         ?string $rubricscores
     ): string {
-        $criteriajson = (string) ($this->field->param7 ?? '');
-        $criteria = [];
-        if ($criteriajson !== '') {
-            $criteria = json_decode($criteriajson, true) ?? [];
-        }
+        $criteria = grade_manager::get_rubric_criteria($this->field);
 
         if (empty($criteria)) {
             return '<div class="alert alert-warning small p-2">'
@@ -366,7 +373,7 @@ class data_field_gradeentry extends data_field_base {
         $html .= ' value="' . ($graderaw !== null ? $graderaw : '') . '" />';
 
         foreach ($criteria as $cidx => $criterion) {
-            $criterionname = s($criterion['name'] ?? 'Criterion ' . ($cidx + 1));
+            $criterionname = s($criterion['name'] ?? get_string('criterionn', 'datafield_gradeentry', $cidx + 1));
             $levels = $criterion['levels'] ?? [];
             $savedscore = isset($savedscores[$cidx]) ? (float) $savedscores[$cidx] : null;
 
@@ -536,14 +543,13 @@ class data_field_gradeentry extends data_field_base {
 
         // Rubric breakdown: show per-criterion scores when available.
         if ($method === grade_manager::METHOD_RUBRIC && $rubricscores !== null) {
-            $criteriajson = (string) ($this->field->param7 ?? '');
-            $criteria     = $criteriajson !== '' ? (json_decode($criteriajson, true) ?? []) : [];
+            $criteria     = grade_manager::get_rubric_criteria($this->field);
             $savedscores  = json_decode($rubricscores, true) ?? [];
 
             if (!empty($criteria)) {
                 $html .= '<dl class="gradeentry-rubric-breakdown mt-2 mb-1 small">';
                 foreach ($criteria as $cidx => $criterion) {
-                    $criterionname = s($criterion['name'] ?? 'Criterion ' . ($cidx + 1));
+                    $criterionname = s($criterion['name'] ?? get_string('criterionn', 'datafield_gradeentry', $cidx + 1));
                     $levels        = $criterion['levels'] ?? [];
                     $savedscore    = isset($savedscores[$cidx]) ? (float) $savedscores[$cidx] : null;
 
@@ -573,9 +579,9 @@ class data_field_gradeentry extends data_field_base {
 
         if ($feedback !== '') {
             $context = \context_module::instance($this->cm->id);
-            $html .= '<p class="mt-1 text-muted small">'
+            $html .= '<div class="mt-1 text-muted small">'
                 . format_text($feedback, FORMAT_MOODLE, ['context' => $context])
-                . '</p>';
+                . '</div>';
         }
 
         $html .= '</div>';
@@ -650,8 +656,9 @@ class data_field_gradeentry extends data_field_base {
      *
      * When the submitted value is 'draft' or 'submitted', update the
      * submission status row. Numeric values are stored as grade content
-     * (CSV import / teacher grading path). Empty and non-numeric values
-     * that are not status strings are silently ignored.
+     * (CSV import / teacher grading path) when the current user can grade.
+     * Empty and non-numeric values that are not status strings, and numeric
+     * values from users who cannot grade, are silently ignored.
      *
      * @param int    $recordid  Database record ID.
      * @param mixed  $value     Submitted value.
@@ -675,15 +682,20 @@ class data_field_gradeentry extends data_field_base {
             return true;
         }
 
-        // Numeric grade from CSV import or other non-AJAX callers.
+        // Numeric grade from CSV import or other non-AJAX callers. Only graders
+        // may set a grade this way; otherwise a student could post a number
+        // for this field when saving their own entry and grade themselves.
         if ($value === '' || $value === null || !is_numeric($value)) {
+            return true;
+        }
+        if (!has_capability('datafield/gradeentry:grade', context_module::instance($this->cm->id))) {
             return true;
         }
 
         $num = (float) $value;
-        $min = (string) ($this->field->param1 ?? '');
-        $max = (string) ($this->field->param2 ?? '');
-        if (($min !== '' && $num < (float) $min) || ($max !== '' && $num > (float) $max)) {
+        $min = $this->field->param1 ?? '';
+        $max = $this->field->param2 ?? '';
+        if ((is_numeric($min) && $num < (float) $min) || (is_numeric($max) && $num > (float) $max)) {
             return true;
         }
 

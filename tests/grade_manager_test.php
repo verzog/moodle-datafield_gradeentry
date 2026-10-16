@@ -25,6 +25,7 @@
 namespace datafield_gradeentry;
 
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * Tests for grade storage, release, and progress counting in grade_manager.
@@ -210,5 +211,97 @@ final class grade_manager_test extends \advanced_testcase {
         $meta = grade_manager::get_metadata($this->fieldid, $rid);
         $this->assertSame(grade_manager::STATUS_DRAFT, $meta['submission_status']);
         $this->assertTrue(grade_manager::has_metadata($this->fieldid, $rid));
+    }
+
+    /**
+     * Read the student's raw grade from the activity's gradebook item.
+     *
+     * @param  int $userid  User ID.
+     * @return float|null  The raw grade, or null when the gradebook holds none.
+     */
+    private function gradebook_grade(int $userid): ?float {
+        global $CFG;
+        require_once($CFG->libdir . '/gradelib.php');
+        $item = \grade_item::fetch([
+            'courseid'     => $this->course->id,
+            'itemtype'     => 'mod',
+            'itemmodule'   => 'data',
+            'iteminstance' => $this->data->id,
+            'itemnumber'   => 0,
+        ]);
+        if (!$item) {
+            return null;
+        }
+        $grade = \grade_grade::fetch(['itemid' => $item->id, 'userid' => $userid]);
+        return ($grade && $grade->rawgrade !== null) ? (float) $grade->rawgrade : null;
+    }
+
+    /**
+     * An unreleased grade stays out of the gradebook until it is released, and
+     * unreleasing removes it again.
+     */
+    public function test_gradebook_only_holds_released_grades(): void {
+        global $DB;
+        $rid = $this->create_record($this->student->id);
+        $DB->insert_record('data_content', (object) ['fieldid' => $this->fieldid, 'recordid' => $rid, 'content' => 80]);
+
+        grade_manager::save((int) $this->cm->id, $this->fieldid, $rid, 80.0, 'Well done');
+        $this->assertNull($this->gradebook_grade((int) $this->student->id));
+
+        grade_manager::release($this->data->id, [$rid], true);
+        $this->assertEqualsWithDelta(80.0, $this->gradebook_grade((int) $this->student->id), 0.001);
+
+        // A regrade of a released entry goes straight to the gradebook.
+        $DB->set_field('data_content', 'content', 90, ['fieldid' => $this->fieldid, 'recordid' => $rid]);
+        grade_manager::save((int) $this->cm->id, $this->fieldid, $rid, 90.0, 'Even better');
+        $this->assertEqualsWithDelta(90.0, $this->gradebook_grade((int) $this->student->id), 0.001);
+
+        grade_manager::release($this->data->id, [$rid], false);
+        $this->assertNull($this->gradebook_grade((int) $this->student->id));
+    }
+
+    /**
+     * Release-all pushes every graded entry to the gradebook.
+     */
+    public function test_release_all_pushes_grades_to_gradebook(): void {
+        $other = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
+        $this->create_graded_record((int) $this->student->id);
+        $this->create_graded_record((int) $other->id);
+
+        grade_manager::release($this->data->id);
+
+        $this->assertEqualsWithDelta(75.0, $this->gradebook_grade((int) $this->student->id), 0.001);
+        $this->assertEqualsWithDelta(75.0, $this->gradebook_grade((int) $other->id), 0.001);
+    }
+
+    /**
+     * Gradebook item settings for each grading method.
+     *
+     * @return array
+     */
+    public static function grade_item_settings_provider(): array {
+        $rubric = json_encode([
+            ['name' => 'A', 'levels' => [['score' => 0, 'desc' => 'x'], ['score' => 5, 'desc' => 'y']]],
+            ['name' => 'B', 'levels' => [['score' => 2, 'desc' => 'x'], ['score' => 10, 'desc' => 'y']]],
+        ]);
+        return [
+            'numeric with max'       => [['param2' => '50', 'param5' => 'numeric'], [0, 50.0]],
+            'numeric without max'    => [['param2' => '', 'param5' => ''], [0, 100.0]],
+            'scale'                  => [['param2' => '50', 'param5' => 'scale', 'param6' => '3'], [3, 0.0]],
+            'rubric sums top levels' => [['param2' => '', 'param5' => 'rubric', 'param7' => $rubric], [0, 15.0]],
+            'rubric not configured'  => [['param2' => '', 'param5' => 'rubric', 'param7' => ''], [0, 100.0]],
+        ];
+    }
+
+    /**
+     * grade_item_settings() returns the scale and maximum grade for each method.
+     *
+     * @param array $params    Field param overrides.
+     * @param array $expected  Expected [scaleid, maxgrade].
+     */
+    #[DataProvider('grade_item_settings_provider')]
+    public function test_grade_item_settings(array $params, array $expected): void {
+        $field = (object) array_merge(['param2' => '', 'param5' => '', 'param6' => '', 'param7' => ''], $params);
+        $this->assertSame($expected, grade_manager::grade_item_settings($field));
     }
 }

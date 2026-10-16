@@ -36,7 +36,7 @@ use datafield_gradeentry\grade_manager;
  * Supports three grading methods determined by the field's param5:
  *  - numeric: standard number input (existing behaviour)
  *  - scale:   grade is a 1-based integer index into the Moodle scale items
- *  - rubric:  grade is the computed total; rubric_scores JSON holds per-criterion selections
+ *  - rubric:  rubricscores JSON holds per-criterion selections; the total is computed server-side
  */
 class save_grade extends external_api {
     /**
@@ -126,7 +126,9 @@ class save_grade extends external_api {
 
         $method = (string) ($field->param5 ?? grade_manager::METHOD_NUMERIC);
 
-        // Validate and normalise grade based on grading method.
+        // Validate and normalise the grade for the field's grading method before
+        // any DB writes, so a bad payload never leaves a half-saved entry.
+        $rubricjson = null;
         if ($method === grade_manager::METHOD_SCALE) {
             $scaleid = (int) ($field->param6 ?? 0);
             if ($scaleid <= 0) {
@@ -139,43 +141,41 @@ class save_grade extends external_api {
             }
             // Store 1-based index matching Moodle's scale grade storage.
             $grade = (float) $index;
-        } else {
-            // Numeric and rubric: apply min/max bounds from field config.
-            $min = (float) ($field->param1 !== '' ? $field->param1 : PHP_INT_MIN);
-            $max = (float) ($field->param2 !== '' ? $field->param2 : PHP_INT_MAX);
-            if ($grade < $min || $grade > $max) {
-                throw new \invalid_parameter_exception('Grade value is outside the allowed range.');
+        } else if ($method === grade_manager::METHOD_RUBRIC) {
+            // The total is computed here from the validated per-criterion
+            // scores; the client-supplied total is not trusted.
+            $criteria = grade_manager::get_rubric_criteria($field);
+            if (!$criteria) {
+                throw new \invalid_parameter_exception('No rubric criteria configured for this field.');
             }
-        }
-
-        // Validate rubric scores before any DB writes so a bad payload never
-        // leaves data_content updated while grade metadata is skipped.
-        $rubricjson = null;
-        if ($method === grade_manager::METHOD_RUBRIC && $rubricscores !== '') {
             $decoded = json_decode($rubricscores, true);
-            if (!is_array($decoded)) {
-                throw new \invalid_parameter_exception('rubricscores must be a valid JSON array.');
-            }
-            $criteriajson = (string) ($field->param7 ?? '');
-            $criteria     = $criteriajson !== '' ? (json_decode($criteriajson, true) ?? []) : [];
-            if (count($decoded) !== count($criteria)) {
+            if (!is_array($decoded) || !array_is_list($decoded) || count($decoded) !== count($criteria)) {
                 throw new \invalid_parameter_exception(
-                    'rubricscores must contain one entry per criterion (' . count($criteria) . ' expected).'
+                    'rubricscores must be a JSON array with one entry per criterion (' . count($criteria) . ' expected).'
                 );
             }
+            $scores = [];
             foreach ($criteria as $cidx => $criterion) {
-                if (!array_key_exists($cidx, $decoded)) {
-                    throw new \invalid_parameter_exception('rubricscores is missing criterion index ' . $cidx . '.');
-                }
                 $levels      = $criterion['levels'] ?? [];
                 $validscores = array_map(static fn($l) => (float) ($l['score'] ?? 0), $levels);
-                if (!in_array((float) $decoded[$cidx], $validscores, true)) {
+                $score       = is_numeric($decoded[$cidx]) ? (float) $decoded[$cidx] : null;
+                if ($score === null || !in_array($score, $validscores, true)) {
                     throw new \invalid_parameter_exception(
                         'Score for criterion ' . $cidx . ' is not a valid level score.'
                     );
                 }
+                $scores[] = $score;
             }
-            $rubricjson = $rubricscores;
+            $grade = array_sum($scores);
+            $rubricjson = json_encode($scores);
+        } else {
+            // Numeric: apply the min/max bounds from the field config. A blank
+            // bound means no limit on that side.
+            $min = $field->param1 ?? '';
+            $max = $field->param2 ?? '';
+            if ((is_numeric($min) && $grade < (float) $min) || (is_numeric($max) && $grade > (float) $max)) {
+                throw new \invalid_parameter_exception('Grade value is outside the allowed range.');
+            }
         }
 
         $existing = $DB->get_record('data_content', ['fieldid' => $fieldid, 'recordid' => $recordid]);
@@ -190,17 +190,16 @@ class save_grade extends external_api {
             ]);
         }
 
-        $scaleid = ($method === grade_manager::METHOD_SCALE) ? (int) ($field->param6 ?? 0) : 0;
+        grade_manager::save($cmid, $fieldid, $recordid, $grade, $feedback, $rubricjson);
 
-        grade_manager::save($cmid, $fieldid, $recordid, $grade, $feedback, $rubricjson, $scaleid);
-
+        [, $maxgrade] = grade_manager::grade_item_settings($field);
         $event = \datafield_gradeentry\event\entry_graded::create([
             'context'       => $context,
             'objectid'      => $recordid,
             'relateduserid' => $record->userid,
             'other'         => [
                 'grade'    => $grade,
-                'maxgrade' => (float) ($field->param2 ?: 100),
+                'maxgrade' => $maxgrade,
             ],
         ]);
         $event->trigger();

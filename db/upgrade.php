@@ -29,7 +29,7 @@
  * @return bool
  */
 function xmldb_datafield_gradeentry_upgrade($oldversion) {
-    global $DB;
+    global $CFG, $DB;
     $dbman = $DB->get_manager();
 
     if ($oldversion < 2026070100) {
@@ -83,6 +83,69 @@ function xmldb_datafield_gradeentry_upgrade($oldversion) {
         }
 
         upgrade_plugin_savepoint(true, 2026070100, 'datafield', 'gradeentry');
+    }
+
+    if ($oldversion < 2026101600) {
+        // Earlier versions pushed a grade to the gradebook as soon as it was
+        // saved, before release. Bring each activity's gradebook back in line
+        // with the release state: a student's grade is their latest released
+        // entry's grade, or nothing if no entry is released.
+        require_once($CFG->libdir . '/gradelib.php');
+        require_once($CFG->dirroot . '/mod/data/field/gradeentry/lib.php');
+
+        $fields = $DB->get_records('data_fields', ['type' => 'gradeentry'], 'id ASC');
+        foreach ($fields as $field) {
+            $data = $DB->get_record('data', ['id' => $field->dataid], 'id, name, course');
+            if (!$data) {
+                continue;
+            }
+            // Only touch activities that already have a gradebook item; don't create new ones.
+            $hasitem = $DB->record_exists('grade_items', [
+                'courseid'     => $data->course,
+                'itemtype'     => 'mod',
+                'itemmodule'   => 'data',
+                'iteminstance' => $data->id,
+                'itemnumber'   => 0,
+            ]);
+            if (!$hasitem) {
+                continue;
+            }
+
+            $rows = $DB->get_records_sql(
+                "SELECT dc.id, dc.content, dc.content1, dr.userid
+                   FROM {data_content} dc
+                   JOIN {data_records} dr ON dr.id = dc.recordid
+                  WHERE dc.fieldid = :fieldid
+               ORDER BY dr.id ASC",
+                ['fieldid' => $field->id]
+            );
+            $grades = [];
+            foreach ($rows as $row) {
+                $meta = json_decode((string) $row->content1, true);
+                if (!is_array($meta) || empty($meta['graded'])) {
+                    continue;
+                }
+                $userid = (int) $row->userid;
+                $hasgrade = $row->content !== null && $row->content !== '';
+                if (!empty($meta['released']) && $hasgrade) {
+                    $grades[$userid] = (float) $row->content;
+                } else if (!array_key_exists($userid, $grades)) {
+                    $grades[$userid] = null;
+                }
+            }
+            if (!$grades) {
+                continue;
+            }
+
+            [$data->_scaleid, $data->_maxgrade] = \datafield_gradeentry\grade_manager::grade_item_settings($field);
+            $gradeobjects = [];
+            foreach ($grades as $userid => $grade) {
+                $gradeobjects[$userid] = (object) ['userid' => $userid, 'rawgrade' => $grade];
+            }
+            datafield_gradeentry_grade_item_update($data, $gradeobjects);
+        }
+
+        upgrade_plugin_savepoint(true, 2026101600, 'datafield', 'gradeentry');
     }
 
     return true;
