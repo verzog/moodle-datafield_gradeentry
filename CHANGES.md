@@ -47,9 +47,13 @@ are documented in this file.
   release ZIPs.
 
 ### Upgrade
-- The upgrade removes grades that were saved but never released from the
-  gradebook, so existing sites stop showing them to students straight away.
-  Released grades are left in place.
+- The upgrade queues an ad hoc task (`resync_gradebook`) that removes grades
+  that were saved but never released from the gradebook. Released grades are
+  left in place. It runs on the next cron run after the upgrade, because the
+  gradebook cannot be changed while an upgrade is in progress (an earlier
+  build of this release did it inside the upgrade and failed with
+  `cannotexecduringupgrade`; sites that hit that can simply deploy this build
+  and run the upgrade again).
 
 ## 1.0.0-beta.3 — 2026-07-31
 

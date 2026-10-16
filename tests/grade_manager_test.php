@@ -34,6 +34,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
  * value in data_content.content, so these tests seed and assert on that table.
  */
 #[CoversClass(\datafield_gradeentry\grade_manager::class)]
+#[CoversClass(\datafield_gradeentry\task\resync_gradebook::class)]
 final class grade_manager_test extends \advanced_testcase {
     /** @var \stdClass Course. */
     private \stdClass $course;
@@ -331,5 +332,45 @@ final class grade_manager_test extends \advanced_testcase {
         // Clearing the remaining released entry removes the grade.
         grade_manager::delete((int) $this->cm->id, $older, $this->fieldid);
         $this->assertNull($this->gradebook_grade((int) $this->student->id));
+    }
+
+    /**
+     * The resync task (queued by the upgrade) removes grades that earlier
+     * versions pushed before release, and keeps released ones.
+     */
+    public function test_resync_task_removes_unreleased_grades(): void {
+        global $CFG;
+        require_once($CFG->dirroot . '/mod/data/field/gradeentry/lib.php');
+
+        $other = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
+        $this->create_graded_record((int) $this->student->id, 0);
+        $this->create_graded_record((int) $other->id, 1);
+
+        // Simulate the old behaviour: both grades pushed regardless of release.
+        $data = (object) ['id' => $this->data->id, 'name' => $this->data->name, 'course' => $this->course->id];
+        datafield_gradeentry_grade_item_update($data, [
+            $this->student->id => (object) ['userid' => $this->student->id, 'rawgrade' => 75],
+            $other->id => (object) ['userid' => $other->id, 'rawgrade' => 75],
+        ]);
+        $this->assertEqualsWithDelta(75.0, $this->gradebook_grade((int) $this->student->id), 0.001);
+
+        (new task\resync_gradebook())->execute();
+
+        $this->assertNull($this->gradebook_grade((int) $this->student->id));
+        $this->assertEqualsWithDelta(75.0, $this->gradebook_grade((int) $other->id), 0.001);
+    }
+
+    /**
+     * Resync never creates a gradebook item for an activity that has none.
+     */
+    public function test_resync_activity_does_not_create_grade_item(): void {
+        global $DB;
+        $this->create_graded_record((int) $this->student->id, 1);
+
+        grade_manager::resync_activity((int) $this->data->id);
+
+        $this->assertFalse($DB->record_exists('grade_items', [
+            'itemtype' => 'mod', 'itemmodule' => 'data', 'iteminstance' => $this->data->id,
+        ]));
     }
 }
