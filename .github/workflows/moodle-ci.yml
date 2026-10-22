@@ -1,151 +1,21 @@
 name: Moodle Plugin CI
 
-on: [push, pull_request]
+# Run on pull requests, and on pushes to main and tags only. A plain "[push, pull_request]" runs the whole matrix
+# twice for every push to a PR branch (once per event).
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - '*'
+  pull_request:
 
-env:
-  TZ: Australia/Sydney
+permissions:
+  contents: read
 
 jobs:
-  test:
-    runs-on: ubuntu-24.04
-
-    # Moodle's main branch is the post-5.3 development branch, not a supported
-    # target. It is kept as an early warning only, so it never blocks a merge.
-    continue-on-error: ${{ matrix.moodle-branch == 'main' }}
-
-    services:
-      # PostgreSQL 17 and MariaDB 11.4 meet the Moodle 5.3 minimums and are
-      # newer than the 5.1 and 5.2 minimums, so one image serves every cell.
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_HOST_AUTH_METHOD: trust
-        ports:
-          - 5432:5432
-        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 3
-
-      mariadb:
-        image: mariadb:11.4
-        env:
-          MYSQL_USER: root
-          MYSQL_ALLOW_EMPTY_PASSWORD: true
-          MYSQL_CHARACTER_SET_SERVER: utf8mb4
-          MYSQL_COLLATION_SERVER: utf8mb4_unicode_ci
-        ports:
-          - 3306:3306
-        # MariaDB 11 images no longer ship mysqladmin; use the image's own check.
-        options: >-
-          --health-cmd="healthcheck.sh --connect --innodb_initialized"
-          --health-interval 10s --health-timeout 5s --health-retries 3
-
-    strategy:
-      fail-fast: false
-      matrix:
-        # MOODLE_500_STABLE is deliberately excluded: it is below the 5.1 baseline.
-        # Moodle 5.2 and later have no PHP 8.2 support, so 8.2 runs on 5.1 only.
-        include:
-          - {moodle-branch: 'MOODLE_501_STABLE', php: '8.2', database: 'pgsql'}
-          - {moodle-branch: 'MOODLE_501_STABLE', php: '8.4', database: 'mariadb'}
-          - {moodle-branch: 'MOODLE_502_STABLE', php: '8.3', database: 'pgsql'}
-          - {moodle-branch: 'MOODLE_503_STABLE', php: '8.3', database: 'pgsql'}
-          - {moodle-branch: 'MOODLE_503_STABLE', php: '8.4', database: 'mariadb'}
-          - {moodle-branch: 'main', php: '8.4', database: 'pgsql'}  # Next version; allowed to fail.
-
-    steps:
-      - name: Check out repository code
-        uses: actions/checkout@v4
-        with:
-          path: plugin
-
-      - name: Setup PHP ${{ matrix.php }}
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: ${{ matrix.php }}
-          extensions: ${{ matrix.database == 'pgsql' && 'pgsql, pdo_pgsql' || 'mysqli, pdo_mysql' }}, curl, zip, gd, intl, xml, soap, sodium
-          ini-values: max_input_vars=5000
-          coverage: none
-
-      - name: Initialise moodle-plugin-ci
-        id: install
-        run: |
-          # Retry the create-project + install up to 3 times with linear
-          # backoff so a transient network/composer flake doesn't cascade
-          # into "moodle-plugin-ci: command not found" on every later step.
-          # Each retry must also remove the moodle/ and moodledata/ trees a
-          # partial "install" leaves behind, otherwise the next attempt's
-          # "git clone ... moodle" aborts with "destination path already
-          # exists" and every retry fails for good.
-          attempt=1
-          until [ "$attempt" -gt 3 ]; do
-            echo "::group::moodle-plugin-ci install attempt $attempt"
-            if composer create-project -n --no-dev --prefer-dist moodlehq/moodle-plugin-ci ci ^4 \
-               && echo $(cd ci && pwd)/bin >> $GITHUB_PATH \
-               && echo $(cd ci && pwd)/vendor/bin >> $GITHUB_PATH \
-               && sudo locale-gen en_AU.UTF-8 \
-               && $(cd ci && pwd)/bin/moodle-plugin-ci install \
-                    --plugin ./plugin \
-                    --db-host=127.0.0.1 \
-                    --branch ${{ matrix.moodle-branch }}; then
-              echo "::endgroup::"
-              exit 0
-            fi
-            echo "::endgroup::"
-            echo "Install attempt $attempt failed; retrying after $((attempt * 10))s."
-            sleep $((attempt * 10))
-            attempt=$((attempt + 1))
-            rm -rf ci moodle moodledata
-          done
-          echo "moodle-plugin-ci install failed after 3 attempts."
-          exit 1
-        env:
-          DB: ${{ matrix.database }}
-          MOODLE_BRANCH: ${{ matrix.moodle-branch }}
-
-      - name: PHP Lint
-        if: ${{ !cancelled() && steps.install.conclusion == 'success' }}
-        run: moodle-plugin-ci phplint ./plugin
-
-      - name: PHP Mess Detector
-        continue-on-error: true
-        if: ${{ !cancelled() && steps.install.conclusion == 'success' }}
-        run: moodle-plugin-ci phpmd ./plugin
-
-      - name: Moodle Code Checker
-        if: ${{ !cancelled() && steps.install.conclusion == 'success' }}
-        run: moodle-plugin-ci phpcs --max-warnings 0 ./plugin
-
-      - name: Moodle PHPDoc Checker
-        if: ${{ !cancelled() && steps.install.conclusion == 'success' }}
-        run: moodle-plugin-ci phpdoc --max-warnings 0 ./plugin
-
-      - name: Validate
-        if: ${{ !cancelled() && steps.install.conclusion == 'success' }}
-        run: moodle-plugin-ci validate ./plugin
-
-      - name: Check upgrade savepoints
-        if: ${{ !cancelled() && steps.install.conclusion == 'success' }}
-        run: moodle-plugin-ci savepoints ./plugin
-
-      - name: Mustache Lint
-        if: ${{ !cancelled() && steps.install.conclusion == 'success' }}
-        run: moodle-plugin-ci mustache ./plugin
-
-      # Grunt runs on the MOODLE_501_STABLE cells only: amd/build is made on
-      # 5.1, and later branches can minify differently and fail on a harmless
-      # difference.
-      # No plugin path here, unlike the other steps: grunt must run against the
-      # copy that "install" placed inside the Moodle tree. From ./plugin (the raw
-      # checkout beside Moodle) grunt cannot find Moodle's Gruntfile.js, and
-      # restoring the checkout's read-only .git objects afterwards crashes.
-      - name: Grunt
-        if: ${{ !cancelled() && steps.install.conclusion == 'success' && matrix.moodle-branch == 'MOODLE_501_STABLE' }}
-        run: moodle-plugin-ci grunt --max-lint-warnings 0
-
-      - name: PHPUnit tests
-        if: ${{ !cancelled() && steps.install.conclusion == 'success' }}
-        run: moodle-plugin-ci phpunit --fail-on-warning ./plugin
-
-      - name: Behat features
-        if: ${{ !cancelled() && steps.install.conclusion == 'success' }}
-        run: moodle-plugin-ci behat --profile chrome --auto-rerun 3 --tags="@datafield_gradeentry" ./plugin
+  ci:
+    uses: verzog/moodle-ci-workflows/.github/workflows/moodle-plugin-ci.yml@vdiddy/more-inputs
+    with:
+      # Only this plugin's scenarios.
+      behat-tags: '@datafield_gradeentry'
