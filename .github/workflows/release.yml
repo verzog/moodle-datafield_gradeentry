@@ -1,14 +1,8 @@
 name: Release zip
 
-# Build the installable plugin ZIP and attach it to a GitHub Release when the
-# release is published. The archive uses the gradeentry/ prefix so it extracts
-# to the subplugin directory name Moodle expects (mod/data/field/gradeentry);
-# Install plugins rejects a ZIP whose root folder is the repository name.
-#
-# The workflow refuses to build when the tag does not match $plugin->release in
-# version.php, so a release can never ship a ZIP that reports another version.
-# It can also be run manually (workflow_dispatch) against an existing release
-# to rebuild and re-attach the ZIP; never attach release zips by hand.
+# Build the installable plugin zip (top folder gradeentry/, the subplugin directory under mod/data/field) and
+# attach it to a GitHub release when the release is published. It can also be run by hand against an existing
+# release to rebuild and re-attach the zip; never attach release zips by hand.
 on:
   release:
     types: [published]
@@ -22,60 +16,7 @@ permissions:
   contents: write
 
 jobs:
-  package:
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Resolve and validate tag
-        id: ref
-        env:
-          # Pass event data through env, never inline into the script body, so a
-          # crafted dispatch input cannot be evaluated by the shell.
-          EVENT_NAME: ${{ github.event_name }}
-          INPUT_TAG: ${{ github.event.inputs.tag }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
-        run: |
-          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
-            TAG="$INPUT_TAG"
-          else
-            TAG="$RELEASE_TAG"
-          fi
-          # Only accept version tags (vMAJOR.MINOR.PATCH with an optional
-          # suffix). This rejects branch names, commit SHAs, and any value
-          # containing shell metacharacters.
-          if ! printf '%s' "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$'; then
-            echo "Refusing to package invalid tag: '$TAG'" >&2
-            exit 1
-          fi
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-
-      - name: Check out the release tag
-        uses: actions/checkout@v4
-        with:
-          ref: refs/tags/${{ steps.ref.outputs.tag }}
-
-      - name: Check tag matches version.php
-        env:
-          TAG: ${{ steps.ref.outputs.tag }}
-        run: |
-          RELEASE=$(sed -nE "s/^\\\$plugin->release[[:space:]]*=[[:space:]]*'([^']+)';.*/\1/p" version.php)
-          if [ "v${RELEASE}" != "$TAG" ]; then
-            echo "Tag '$TAG' does not match \$plugin->release '$RELEASE' in version.php." >&2
-            echo "Bump version.php and tag to match (e.g. v${RELEASE})." >&2
-            exit 1
-          fi
-          echo "Tag $TAG matches \$plugin->release $RELEASE."
-
-      - name: Build plugin ZIP
-        env:
-          TAG: ${{ steps.ref.outputs.tag }}
-        run: |
-          ZIP="datafield_gradeentry-${TAG}.zip"
-          git archive --format=zip --prefix=gradeentry/ -o "$ZIP" "refs/tags/${TAG}"
-          echo "ZIP=$ZIP" >> "$GITHUB_ENV"
-          unzip -l "$ZIP"
-
-      - name: Attach ZIP to release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ steps.ref.outputs.tag }}
-        run: gh release upload "$TAG" "$ZIP" --clobber
+  release:
+    uses: verzog/moodle-ci-workflows/.github/workflows/release-zip.yml@v1
+    with:
+      tag: ${{ inputs.tag }}
